@@ -43,8 +43,8 @@
 #     o  a max session time set to 28800 seconds (8 hours) or less
 #
 #fisp
-#	Service-Type == ::Framed-User,
-#	Framed-Protocol == ::PPP,
+#	Service-Type == Framed-User,
+#	Framed-Protocol == PPP,
 #	Framed-IP-Address == 255.255.255.254,
 #	Idle-Timeout <= 600,
 #	Session-Timeout <= 28800
@@ -58,14 +58,13 @@
 # These rules allow:
 #       o Only Login-User Service-Type ( no framed/ppp sessions )
 #       o Telnet sessions only ( no rlogin, tcp-clear )
-#       o Login hosts of either 192.0.2.1 or 192.0.2.2
+#       o Login host of 192.0.2.1
 #
 #tisp
-#	Service-Type == ::Login-User,
-#	Login-Service == ::Telnet,
+#	Service-Type == Login-User,
+#	Login-Service == Telnet,
 #	Login-TCP-Port == 23,
-#	Login-IP-Host == 192.0.2.1,
-#	Login-IP-Host == 192.0.2.2
+#	Login-IP-Host == 192.0.2.1
 
 #
 # The following example can be used for a home server which is only
@@ -101,29 +100,22 @@
 #
 
 DEFAULT
-	Service-Type == ::Framed-User,
-	Service-Type == ::Login-User,
-	Login-Service == ::Telnet,
-	Login-Service == ::Rlogin,
-	Login-Service == ::TCP-Clear,
-	Login-TCP-Port <= 65536,
 	Framed-IP-Address == 255.255.255.254,
 	Framed-IP-Netmask == 255.255.255.255,
-	Framed-Protocol == ::PPP,
-	Framed-Protocol == ::SLIP,
-	Framed-Compression == ::Van-Jacobson-TCP-IP,
 	Framed-MTU >= 576,
 	Framed-Filter-ID =* ANY,
 	Reply-Message =* ANY,
 	Proxy-State =* ANY,
 	EAP-Message =* ANY,
 	Message-Authenticator =* ANY,
-	Vendor-Specific.Microsoft.MPPE-Recv-Key =* ANY,
-	Vendor-Specific.Microsoft.MPPE-Send-Key =* ANY,
-	Vendor-Specific.Microsoft.CHAP-MPPE-Keys =* ANY,
+	MS-MPPE-Recv-Key =* ANY,
+	MS-MPPE-Send-Key =* ANY,
+	MS-CHAP-MPPE-Keys =* ANY,
 	State =* ANY,
 	Session-Timeout <= 28800,
 	Idle-Timeout <= 600,
 	Calling-Station-Id =* ANY,
 	Operator-Name =* ANY,
+	User-Name =* ANY,
+	Chargeable-User-Identity =* ANY,
 	Port-Limit <= 2

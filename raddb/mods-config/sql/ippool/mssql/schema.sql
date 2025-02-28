@@ -1,40 +1,25 @@
 --
--- Table structure for table 'fr_ippool'
+-- Table structure for table 'radippool'
 --
--- See also "procedure.sql" in this directory for
--- a stored procedure that gives much faster response.
---
-
-CREATE TABLE fr_ippool_status (
-	status_id	int NOT NULL,
-	status		varchar(10) NOT NULL,
-	PRIMARY KEY (status_id)
+CREATE TABLE radippool (
+  id                    int IDENTITY (1,1) NOT NULL,
+  pool_name             varchar(30) NOT NULL,
+  FramedIPAddress       varchar(15) NOT NULL default '',
+  NASIPAddress          varchar(15) NOT NULL default '',
+  CalledStationId       VARCHAR(32) NOT NULL default '',
+  CallingStationId      VARCHAR(30) NOT NULL default '',
+  expiry_time           DATETIME NOT NULL default CURRENT_TIMESTAMP,
+  UserName              varchar(64) NOT NULL default '',
+  pool_key              varchar(30) NOT NULL default '',
+  PRIMARY KEY (id)
 )
 GO
 
-INSERT INTO fr_ippool_status (status_id, status) VALUES (1, 'dynamic'), (2, 'static'), (3, 'declined'), (4, 'disabled')
+CREATE INDEX poolname_expire ON radippool(pool_name, expiry_time)
 GO
 
-CREATE TABLE fr_ippool (
-	id			int IDENTITY (1,1) NOT NULL,
-	pool_name		varchar(30) NOT NULL,
-	address		        varchar(43) NOT NULL default '',
-	owner		        varchar(128) NOT NULL default '',
-	gateway			varchar(128) NOT NULL default '',
-	expiry_time		DATETIME NOT NULL default CURRENT_TIMESTAMP,
-	status_id		int NOT NULL default 1,
-	counter			int NOT NULL default 0,
-	CONSTRAINT fk_status_id FOREIGN KEY (status_id) REFERENCES fr_ippool_status (status_id),
-	PRIMARY KEY (id)
-)
+CREATE INDEX FramedIPAddress ON radippool(FramedIPAddress)
 GO
 
-CREATE INDEX fr_ippool_poolname_expire ON fr_ippool(pool_name, expiry_time)
+CREATE INDEX NASIPAddress_poolkey_FramedIPAddress ON radippool(NASIPAddress, pool_key, FramedIPAddress)
 GO
-
-CREATE INDEX fr_ippool_address ON fr_ippool(address)
-GO
-
-CREATE INDEX fr_poolname_poolkey_address ON fr_ippool(pool_name, owner, address)
-GO
-

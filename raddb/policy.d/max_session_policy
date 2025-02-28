@@ -1,0 +1,9 @@
+max_session_policy{
+    #Check if the Maximal Concurrent User Sessions Reached
+    if ("%{&control:Simultaneous-Session-Status}" != 1){
+        update reply{
+            Reply-Message := "Maximal Concurrent User Sessions Reached"
+        }
+        reject
+    }
+}

@@ -1,0 +1,116 @@
+server lte {
+listen {
+	type = auth
+	ipaddr = *
+	port = 2112
+	limit {
+	      max_connections = 16
+	      lifetime = 0
+	      idle_timeout = 30
+	}
+}
+
+listen {
+	ipaddr = *
+	port = 2113
+	type = acct
+
+	limit {
+	}
+}
+
+authorize {
+        #lte_auth_policy
+	chap
+	mschap
+	digest
+	eap {
+		ok = return
+	}
+	files
+	ent_sql
+	-ldap
+	pap
+	Autz-Type New-TLS-Connection {
+		  ok
+	}
+}
+
+authenticate {
+	Auth-Type PAP {
+		pap
+	}
+	Auth-Type CHAP {
+		chap
+	}
+	Auth-Type MS-CHAP {
+		mschap
+	}
+	mschap
+	digest
+	eap
+}
+
+preacct {
+	preprocess
+	acct_unique
+	suffix
+	files
+}
+
+accounting {
+	detail
+	unix
+	lte_accounting
+
+        #lte_sql
+	exec
+	attr_filter.accounting_response
+}
+
+session {
+	sql
+}
+
+post-auth {
+		
+        lte_sql
+
+	if (session-state:User-Name && reply:User-Name && request:User-Name && (reply:User-Name == request:User-Name)) {
+		update reply {
+			&User-Name !* ANY
+		}
+	}
+	update {
+		&reply: += &session-state:
+	}
+	-sql
+	exec
+	remove_reply_message_if_eap
+	Post-Auth-Type REJECT {
+		-sql
+		attr_filter.access_reject
+		eap
+
+		remove_reply_message_if_eap
+	}
+
+	Post-Auth-Type Challenge {
+	}
+
+	Post-Auth-Type Client-Lost {
+	}
+	if (EAP-Key-Name && &reply:EAP-Session-Id) {
+		update reply {
+			&EAP-Key-Name := &reply:EAP-Session-Id
+		}
+	}
+}
+
+pre-proxy {
+}
+
+post-proxy {
+	eap
+}
+}

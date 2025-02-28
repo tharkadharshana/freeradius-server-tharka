@@ -1,6 +1,6 @@
 -- $Id$d$
 --
--- schema.sql   rlm_sql - FreeRADIUS SQL Module
+-- schela.sql   rlm_sql - FreeRADIUS SQL Module
 --
 -- Database schema for MSSQL rlm_sql module
 --
@@ -25,7 +25,7 @@ CREATE TABLE [radacct] (
 	[GroupName] [varchar] (64) NOT NULL,
 	[Realm] [varchar] (64) NOT NULL,
 	[NASIPAddress] [varchar] (15) NOT NULL,
-	[NASPortId] [varchar] (15) NULL,
+	[NASPortId] [varchar] (32) NULL,
 	[NASPortType] [varchar] (32) NULL,
 	[AcctStartTime] [datetime] NOT NULL,
 	[AcctUpdateTime] [datetime] NOT NULL,
@@ -33,12 +33,12 @@ CREATE TABLE [radacct] (
 	[AcctInterval] [bigint] NULL,
 	[AcctSessionTime] [bigint] NULL,
 	[AcctAuthentic] [varchar] (32) NULL,
-	[ConnectInfo_start] [varchar] (32) NULL,
-	[ConnectInfo_stop] [varchar] (32) NULL,
+	[ConnectInfo_start] [varchar] (128) NULL,
+	[ConnectInfo_stop] [varchar] (128) NULL,
 	[AcctInputOctets] [bigint] NULL,
 	[AcctOutputOctets] [bigint] NULL,
-	[CalledStationId] [varchar] (30) NOT NULL,
-	[CallingStationId] [varchar] (30) NOT NULL,
+	[CalledStationId] [varchar] (50) NOT NULL,
+	[CallingStationId] [varchar] (50) NOT NULL,
 	[AcctTerminateCause] [varchar] (32) NOT NULL,
 	[ServiceType] [varchar] (32) NULL,
 	[FramedProtocol] [varchar] (32) NULL,
@@ -47,6 +47,8 @@ CREATE TABLE [radacct] (
 	[FramedIPv6Prefix] [varchar] (45) NOT NULL,
 	[FramedInterfaceId] [varchar] (44) NOT NULL,
 	[DelegatedIPv6Prefix] [varchar] (45) NOT NULL,
+	[AcctStartDelay] [int] NULL,
+	[AcctStopDelay] [int] NULL,
 	[Class] [varchar] (64) NULL
 ) ON [PRIMARY]
 GO
@@ -79,6 +81,8 @@ ALTER TABLE [radacct] WITH NOCHECK ADD
 	CONSTRAINT [DF_radacct_FramedIPv6Prefix] DEFAULT ('') FOR [FramedIPv6Prefix],
 	CONSTRAINT [DF_radacct_FramedInterfaceId] DEFAULT ('') FOR [FramedInterfaceId],
 	CONSTRAINT [DF_radacct_DelegatedIPv6Prefix] DEFAULT ('') FOR [DelegatedIPv6Prefix],
+	CONSTRAINT [DF_radacct_AcctStartDelay] DEFAULT (null) FOR [AcctStartDelay],
+	CONSTRAINT [DF_radacct_AcctStopDelay] DEFAULT (null) FOR [AcctStopDelay],
 	CONSTRAINT [DF_radacct_Class] DEFAULT (null) FOR [Class],
 	CONSTRAINT [PK_radacct] PRIMARY KEY NONCLUSTERED
 	(
@@ -122,18 +126,13 @@ GO
 CREATE INDEX [Class] ON [radacct]([Class]) ON [PRIMARY]
 GO
 
--- For use by onoff
+/* For use by onoff */
 CREATE INDEX [RadacctBulkClose] ON [radacct]([NASIPAddress],[AcctStartTime]) WHERE [AcctStopTime] IS NULL ON [PRIMARY]
 GO
 
 
 --
--- Table structure for table 'radcheck'
---
--- Note: [op] is varchar to allow for "=" as a value -
--- depending on which driver is used to access the database, if
--- the field is defined as char, then the trailing space may be
--- returned, which fails to parse correctly.
+-- Table structure for table 'radacct'
 --
 
 CREATE TABLE [radcheck] (
@@ -141,7 +140,7 @@ CREATE TABLE [radcheck] (
 	[UserName] [varchar] (64) NOT NULL ,
 	[Attribute] [varchar] (32) NOT NULL ,
 	[Value] [varchar] (253) NOT NULL ,
-	[op] [varchar] (2) NULL
+	[op] [char] (2) NULL
 ) ON [PRIMARY]
 GO
 
@@ -161,7 +160,7 @@ GO
 
 
 --
--- Table structure for table 'radgroupcheck'
+-- Table structure for table 'radacct'
 --
 
 CREATE TABLE [radgroupcheck] (
@@ -169,7 +168,7 @@ CREATE TABLE [radgroupcheck] (
 	[GroupName] [varchar] (64) NOT NULL ,
 	[Attribute] [varchar] (32) NOT NULL ,
 	[Value] [varchar] (253) NOT NULL ,
-	[op] [varchar] (2) NULL
+	[op] [char] (2) NULL
 ) ON [PRIMARY]
 GO
 
@@ -189,7 +188,7 @@ GO
 
 
 --
--- Table structure for table 'radgroupreply'
+-- Table structure for table 'radacct'
 --
 
 CREATE TABLE [radgroupreply] (
@@ -197,7 +196,7 @@ CREATE TABLE [radgroupreply] (
 	[GroupName] [varchar] (64) NOT NULL ,
 	[Attribute] [varchar] (32) NOT NULL ,
 	[Value] [varchar] (253) NOT NULL ,
-	[op] [varchar] (2) NULL ,
+	[op] [char] (2) NULL ,
 	[prio] [int] NOT NULL
 ) ON [PRIMARY]
 GO
@@ -219,7 +218,7 @@ GO
 
 
 --
--- Table structure for table 'radreply'
+-- Table structure for table 'radacct'
 --
 
 CREATE TABLE [radreply] (
@@ -227,7 +226,7 @@ CREATE TABLE [radreply] (
 	[UserName] [varchar] (64) NOT NULL ,
 	[Attribute] [varchar] (32) NOT NULL ,
 	[Value] [varchar] (253) NOT NULL ,
-	[op] [varchar] (2) NULL
+	[op] [char] (2) NULL
 ) ON [PRIMARY]
 GO
 
@@ -247,7 +246,7 @@ GO
 
 
 --
--- Table structure for table 'radusergroup'
+-- Table structure for table 'radacct'
 --
 
 CREATE TABLE [radusergroup] (
@@ -272,7 +271,7 @@ GO
 
 
 --
--- Table structure for table 'radpostauth'
+-- Table structure for table 'radacct'
 --
 
 CREATE TABLE [radpostauth] (
@@ -281,8 +280,14 @@ CREATE TABLE [radpostauth] (
 	[pass] [varchar] (64) NOT NULL ,
 	[reply] [varchar] (32) NOT NULL ,
 	[authdate] [datetime] NOT NULL,
-	[class] [varchar] (64) NULL
+	[Class] [varchar] (64) NULL
 )
+GO
+
+CREATE INDEX [userName] ON [radpostauth]([userName]) ON [PRIMARY]
+GO
+
+CREATE INDEX [Class] ON [radpostauth]([Class]) ON [PRIMARY]
 GO
 
 ALTER TABLE [radpostauth] WITH NOCHECK ADD
@@ -290,47 +295,8 @@ ALTER TABLE [radpostauth] WITH NOCHECK ADD
 	CONSTRAINT [DF_radpostauth_pass] DEFAULT ('') FOR [pass],
 	CONSTRAINT [DF_radpostauth_reply] DEFAULT ('') FOR [reply],
 	CONSTRAINT [DF_radpostauth_authdate] DEFAULT (getdate()) FOR [authdate],
-	CONSTRAINT [DF_radpostauth_class] DEFAULT ('') FOR [class],
 	CONSTRAINT [PK_radpostauth] PRIMARY KEY NONCLUSTERED
 	(
 		[id]
 	) ON [PRIMARY]
-GO
-
---
--- Table structure for table 'nas'
---
-CREATE TABLE [nas] (
-	[id] [int] IDENTITY (1, 1) NOT NULL ,
-	[nasname] [varchar] (128) NOT NULL,
-	[shortname] [varchar] (32) NOT NULL,
-	[type] [varchar] (30) NOT NULL,
-	[ports] [int] NULL,
-	[secret] [varchar] (60) NOT NULL,
-	[server] [varchar] (64) NULL,
-	[community] [varchar] (50) NULL,
-	[description] [varchar] (200) NOT NULL,
-	[require_ma] [varchar] (4) NOT NULL,
-	[limit_proxy_state] [varchar] (4) NOT NULL
-) ON [PRIMARY]
-GO
-
-CREATE INDEX [nas_name] ON [nas]([nasname]) ON [PRIMARY]
-GO
-
-ALTER TABLE [nas] WITH NOCHECK ADD
-	CONSTRAINT [DF_nas_type] DEFAULT ('other') FOR [type],
-	CONSTRAINT [DF_nas_secret] DEFAULT ('secret') FOR [secret],
-	CONSTRAINT [DF_nas_description] DEFAULT ('RADIUS Client') FOR [description],
-	CONSTRAINT [DF_require_ma] DEFAULT ('auto') FOR [require_ma],
-	CONSTRAINT [DF_limit_proxy_state] DEFAULT ('auto') FOR [limit_proxy_state]
-GO
-
---
--- Table structure for table 'nasreload'
---
-CREATE TABLE [nasreload] (
-	[nasipaddress] [varchar] (15) NOT NULL PRIMARY KEY,
-	[reloadtime] [datetime] NOT NULL
-) ON [PRIMARY]
 GO

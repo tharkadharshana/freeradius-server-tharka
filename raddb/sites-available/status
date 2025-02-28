@@ -1,4 +1,4 @@
-#  -*- text -*-
+# -*- text -*-
 ######################################################################
 #
 #	A virtual server to handle ONLY Status-Server packets.
@@ -28,15 +28,13 @@
 ######################################################################
 
 server status {
-	namespace = radius
 	listen {
-		transport = udp
-		udp {
-			ipaddr = 127.0.0.1
-			port = 18121
-		}
+		#  ONLY Status-Server is allowed to this port.
+		#  ALL other packets are ignored.
+		type = status
 
-		type = Status-Server
+		ipaddr = 127.0.0.1
+		port = 18121
 	}
 
 	#
@@ -58,33 +56,72 @@ server status {
 	}
 
 	#
-	#  Receive a Status-Server packet
-	#
-	recv Status-Server {
-		#
-		#  Add statistics based on the Vendor-Specific.FreeRADIUS.Stats4-* queries.
-		#
-		stats
+	#  Simple authorize section.  The "Autz-Type Status-Server"
+	#  section will work here, too.  See "raddb/sites-available/default".
+	authorize {
 		ok
+
+		# respond to the Status-Server request.
+		Autz-Type Status-Server {
+			ok
+		}
 	}
+}
 
 #	Statistics can be queried via a number of methods:
 #
 #	All packets received/sent by the server (1 = auth, 2 = acct)
-#		Vendor-Specific.FreeRADIUS.Stats4-Type = Global
+#		FreeRADIUS-Statistics-Type = 3
+#
+#	All packets proxied by the server (4 = proxy-auth, 8 = proxy-acct)
+#		FreeRADIUS-Statistics-Type = 12
+#
+#	All packets sent && received:
+#		FreeRADIUS-Statistics-Type = 15
+#
+#	Internal server statistics:
+#		FreeRADIUS-Statistics-Type = 16
 #
 #	All packets for a particular client (globally defined)
-#		Vendor-Specific.FreeRADIUS.Stats4-Type = Client
-#		Vendor-Specific.FreeRADIUS.Stats4-IPv4-Address = 192.0.2.1
+#		FreeRADIUS-Statistics-Type = 35
+#		FreeRADIUS-Stats-Client-IP-Address = 192.0.2.1
 #
 #	All packets for a client attached to a "listen" ip/port
-#		Vendor-Specific.FreeRADIUS.Stats4-Type = Listener
-#		Vendor-Specific.FreeRADIUS.Stats4-IPv4-Address = 192.0.2.1
-#		Vendor-Specific.FreeRADIUS.Stats4-port = 1812
+#		FreeRADIUS-Statistics-Type = 35
+#		FreeRADIUS-Stats-Client-IP-Address = 192.0.2.1
+#		FreeRADIUS-Stats-Server-IP-Address = 127.0.0.1
+#		FreeRADIUS-Stats-Server-Port = 1812
+#
+#	All packets for a "listen" IP/port
+#		FreeRADIUS-Statistics-Type = 67
+#		FreeRADIUS-Stats-Server-IP-Address = 127.0.0.1
+#		FreeRADIUS-Stats-Server-Port = 1812
+#
+#	All packets for a home server IP / port
+#		FreeRADIUS-Statistics-Type = 131
+#		FreeRADIUS-Stats-Server-IP-Address = 192.0.2.2
+#		FreeRADIUS-Stats-Server-Port = 1812
+
+#
+#  You can also get exponentially weighted moving averages of
+#  response times (in usec) of home servers.  Just set the config
+#  item "historic_average_window" in a home_server section.
+#
+#  By default it is zero (don't calculate it).  Useful values
+#  are between 100, and 10,000.  The server will calculate and
+#  remember the moving average for this window, and for 10 times
+#  that window.
 #
 
 #
+#  Some of this could have been simplified.  e.g. the proxy-auth and
+#  proxy-acct bits aren't completely necessary.  But using them permits
+#  the server to be queried for ALL inbound && outbound packets at once.
+#  This gives a good snapshot of what the server is doing.
+#
 #  Due to internal limitations, the statistics might not be exactly up
 #  to date.  Do not expect all of the numbers to add up perfectly.
+#  The Status-Server packets are also counted in the total requests &&
+#  responses.  The responses are counted only AFTER the response has
+#  been sent.
 #
-}

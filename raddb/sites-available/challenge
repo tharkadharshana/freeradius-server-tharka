@@ -1,8 +1,3 @@
-#  -*- text -*-
-#  $Id$
-
-#######################################################################
-
 #
 #	This file gives an example of using Challenge-Response
 #
@@ -11,68 +6,118 @@
 #	consisting of a random number 0..9.  The user has to respond
 #	with that number.
 #
+#
+#	$Id$
+#
+listen {
+	type = auth
+	ipaddr = *
+	port = 2000
+	virtual_server = challenge
+}
+
 server challenge {
-	namespace = radius
-
-	dictionary {
-		uint32 challenge-string
+authorize {
+	#
+	#  OTP requires a password.
+	#
+	if (!User-Password) {
+		reject
 	}
-
-	listen {
-		type = Access-Request
-		transport = udp
-
-		udp {
-			ipaddr = *
-			port = 2000
-		}
-	}
-
-recv Access-Request {
 
 	#
-	#  If there's no State attribute, then this is the request from
-	#  the user.
+	#  If there's no State attribute, then this is the first
+	#  request from the user.
 	#
 	if (!State) {
-		control.Auth-Type := ::Step1
-		control.Password.Cleartext := "hello"
+		#
+		#  Set the authentication to use step 1.
+		update control {
+			Auth-Type := Step1
+
+			#
+			#  For testing we will just set the password to "hello".
+			#
+			#  Normally the password comes from "ldap" or "sql".
+			#
+			Cleartext-Password := "hello"
+
+#			ldap
+#			sql
+#			...
+		}
 	}
 	else {
 		#
-		#  Do authentication for step 2.
+		#  Check that the password looks like an OTP
+		#
+		if (User-Password !~ /[0-9]{6}/) {
+			reject
+		}
+
+		#
+		#  Set the authentication to use step 2.
 		#  Set the "known good" password to the number
 		#  saved in the session-state list.
 		#
-		control.Auth-Type := ::Step2
-		control.Password.Cleartext := session-state.challenge-string
+		update control {
+			Auth-Type := Step2
+
+			#
+			#  For testing, ensure that the user enters the same password.
+			#
+			#  Normally this section should look up a TOTP-Secret, and
+			#
+			Cleartext-Password := &session-state:Tmp-Integer-0
+
+			#
+			#  Normally this section should also set &control:TOTP-Secret, too.
+			#
+			TOTP-Password := &User-Password
+		}
 	}
 }
 
+authenticate {
+	Auth-Type Step1 {
+		#  If the password doesn't match, the user is rejected
+		#  immediately.
+		pap
 
-authenticate step1 {
-	#  If the password doesn't match, the user is rejected
-	#  immediately.
-	pap
+		#
+		#  For testing, just use a 6 digit random OTP.
+		#
+		update session-state {
+			Tmp-Integer-0 := "%{randstr:nnnnnn}"
+		}
 
-	#
-	#  Set the random number to save.
-	#
-	session-state.challenge-string := "%randstr(n)"
-	reply.Reply-Message := "Please enter %{session-state.challenge-string}: "
+		#
+		#  For testing, tell the user what OTP to enter.
+		#
+		#  Don't do this in production...
+		#
+		update reply {
+			Reply-Message := "Please enter OTP %{session-state:Tmp-Integer-0}"
+		}
 
-	#
-	#  Send an Access-Challenge.
-	#  See raddb/policy.d/control for the definition
-	#  of "challenge"
-	#
-	challenge
-}
+		#
+		#  Send an Access-Challenge.
+		#  See raddb/policy.d/control for the definition
+		#  of "challenge"
+		#
+		challenge
+	}
 
-authenticate step2 {
-	#
-	#  Do PAP authentication with the password.
-	#
-	pap
+	Auth-Type Step2 {
+		#
+		#  For testing, do PAP authentication with the password.
+		#
+		pap
+
+		#
+		#  Normally you'd do TOTP checks via the TOTP module.
+		#
+#		totp
+	}
 }
 }

@@ -1,194 +1,121 @@
-#  -*- text -*-
+#  Rather than maintaining separate (GDBM) databases of
+#  accounting info for each counter, this module uses the data
+#  stored in the raddacct table by the sql modules. This
+#  module NEVER does any database INSERTs or UPDATEs.  It is
+#  totally dependent on the SQL module to process Accounting
+#  packets.
 #
+#  The sql-module-instance' parameter holds the instance of the sql
+#  module to use when querying the SQL database. Normally it
+#  is just "sql".  If you define more and one SQL module
+#  instance (usually for failover situations), you can
+#  specify which module has access to the Accounting Data
+#  (radacct table).
 #
-#  $Id$
-
-#######################################################################
+#  The 'reset' parameter defines when the counters are all
+#  reset to zero.  It can be hourly, daily, weekly, monthly or
+#  never.  It can also be user defined. It should be of the
+#  form:
+#  	num[hdwm] where:
+#  	h: hours, d: days, w: weeks, m: months
+#  	If the letter is ommited days will be assumed. In example:
+#  	reset = 10h (reset every 10 hours)
+#  	reset = 12  (reset every 12 days)
 #
-#  = SQL Counter Module
+#  The 'reset_day' parameter defines which day of the month the
+#  'monthly' counter should be reset; valid values are 1 to 28.
 #
-#  The `sqlcounter` module  provides a general framework to allow access
-#  based on accumulated usage of a resource, such as total time online in
-#  a given period, total data transferred in a given period, etc. This is
-#  very useful in a _Prepaid Service_ situation, where a user has paid for
-#  a finite amount of usage and should not be allowed to use more than
-#  that service. Collection, monitoring, and replenishment of prepaid
-#  services are beyond the scope of this module.
+#  The 'key' parameter specifies the unique identifier for the
+#  counter records (usually 'User-Name').
 #
-#  Rather than maintaining separate (`GDBM`) databases of accounting info
-#  for each counter, this module uses the data stored in the `radacct` table
-#  by the `sql` modules.
+#  The 'query' parameter specifies the SQL query used to get
+#  the current Counter value from the database. There are four
+#  parameters that can be used in the query:
 #
-#  NOTE: This module *NEVER* does any database INSERTs or UPDATEs. It is totally
-#  dependent on the SQL module to process `Accounting` packets.
+#	%%b	unix time value of beginning of reset period.
+#	%%e	unix time value of end of reset period.
+#	%%k	value of 'key' parameter.
+#	%%r	day of month the counter should be reset.
 #
-
+#  The 'check_name' parameter is the name of the 'check'
+#  attribute to use to access the counter in the 'users' file
+#  or SQL radcheck or radgroupcheck tables.
 #
-#  ## Syntax
+#  DEFAULT  Max-Daily-Session > 3600, Auth-Type = Reject
+#      Reply-Message = "You've used up more than one hour today"
 #
-#  Configuration explanation.
-#
-#	sqlcounter <name> {
-#
-#  sql_module_instance:: Holds the instance of the `sql` module to use when
-#  querying the SQL database.
-#
-#  NOTE: Normally it is just `sql`. If you define more and one SQL module instance
-#  (usually for failover situations), you can specify which module has access to
-#  the Accounting Data (`radacct table`).
-#
-#	sql_module_instance = sql_foo
-#
-#  reset:: Defines when the counters are all reset to zero.
-#
-#  It can be `hourly`, `daily`, `weekly`, `monthly` or `never`.
-#
-#  It can also be user defined as the form: `num[hdwm]`
-#
-#  where:
-#  [options="header,autowidth"]
-#  |===
-#  | Parameter | Description
-#  | `h`       | hours
-#  | `d`       | days
-#  | `w`       | weeks
-#  | `m`       | months
-#  |===
-#
-#  If the latter is omitted days will be assumed.
-#
-#  In example:
-#
-#  * `reset` = 10h (reset every 10 hours)
-#  * `reset` = 12  (reset every 12 days)
-#
-#	reset = 12h
-#
-#  key:: Specifies the unique identifier for the counter records (usually `User-Name`).
-#
-#  The `query` parameter specifies the SQL query used to get the current Counter value
-#  from the database.
-#
-#	key = "%{&Stripped-User-Name || &User-Name}"
-#
-#  reset_period_start_name::  The name of the attribute which is used to store the
-#  time that the current reset period started.
-#
-#  The default is `&control.${.:instance}-Reset-Start`
-#
-#  Note because we are counting seconds, this attribute is of type `uint64`, and not `date`.
-#
-#  reset_period_end_name::  The name of the attribute which is used to store the
-#  time that the current reset period will end.
-#
-#  The default is `&control.${.:instance}-Reset-End`
-#
-#  Note because we are counting seconds, this attribute is of type `uint64`, and not `date`.
-#
-#  counter_name:: Name of the attribute to add to the `control` list with the current
-#  value of the counter.
-#
-#  After the sqlcounter module has run, the counter attribute will exist.
-#
-#	if (&control.Daily-Session-Time > 3600) {
-#		 &Reply-Message := "You've used up more than one hour today"
-#		 reject
-#	}
-#
-#  check_name:: Name of the attribute containing the limit to compare the counter to.
-#
-#  reply_name:: Name of the attribute to populate with the remaining session time.
-#  e.g. `&reply.Session-Timeout`.  If the attribute already exists and contains
-#  a lower value, then it will not be updated.
-#
-#  reply_message_name:: Name of the attribute into which a message should be placed
-#  if the limit has been exceeded for the counter.
-#
-#  auto_extend:: If set to `yes` and the remaining session time goes past the time for
-#  the next counter reset, the value in the `reply_name` attribute will be set to
-#  the time to the next reset plus the value of the `check_name` attribute.
-#  This is most useful if the limit is a time based one, and, for example,
-#  `Session-Timeout` is the `reply_name` attribute.  If there is sufficient allocation
-#  left for the session to get to the next counter period, the user will not have
-#  to re-authenticate before they have used their allocation for the next counter period.
-#
-#  utc:: Use UTC for calculating the period start and end values.
-
-#
-#  ## Configuration Settings
-#
-
-#
-#  ### Daily Counter
+#  The "dailycounter" (or any other sqlcounter module) should be added
+#  to "post-auth" section.  It will then update the Session-Timeout
+#  attribute in the reply.  If there is no Session-Timeout attribute,
+#  the module will add one.  If there is an attribute, the sqlcounter
+#  module will make sure that the value is no higher than the limit.
 #
 sqlcounter dailycounter {
 	sql_module_instance = sql
 	dialect = ${modules.sql.dialect}
 
-#	reset_period_start_name = &control.${.:instance}-Reset-Start
-#	reset_period_end_name = &control.${.:instance}-Reset-End
-	counter_name = &control.Daily-Session-Time
-	check_name = &control.Max-Daily-Session
-	reply_name = &reply.Session-Timeout
-	auto_extend = yes
-	key = "%{&Stripped-User-Name || &User-Name}"
-	reply_message_name = &Reply-Message
+	counter_name = Daily-Session-Time
+	check_name = Max-Daily-Session
+	reply_name = Session-Timeout
 
+	key = User-Name
 	reset = daily
 
 	$INCLUDE ${modconfdir}/sql/counter/${dialect}/${.:instance}.conf
 }
 
-#
-#  ### Monthly Counter
-#
-sqlcounter monthlycounter {
+sqlcounter weeklycounter {
 	sql_module_instance = sql
 	dialect = ${modules.sql.dialect}
 
-	counter_name = &Monthly-Session-Time
-	check_name = &control.Max-Monthly-Session
-	reply_name = &reply.Session-Timeout
-	auto_extend = yes
-	key = &User-Name
+	counter_name = Weekly-Session-Time
+	check_name = Max-Weekly-Session
+	reply_name = Session-Timeout
 
-	reset = monthly
+	key = User-Name
+	reset = weekly
 
 	$INCLUDE ${modconfdir}/sql/counter/${dialect}/${.:instance}.conf
 }
 
-#
-#  ### No Reset Counter
-#
+sqlcounter monthlycounter {
+	sql_module_instance = sql
+	dialect = ${modules.sql.dialect}
+
+	counter_name = Monthly-Session-Time
+	check_name = Max-Monthly-Session
+	reply_name = Session-Timeout
+	key = User-Name
+	reset = monthly
+	reset_day = 1
+
+	$INCLUDE ${modconfdir}/sql/counter/${dialect}/${.:instance}.conf
+}
+
 sqlcounter noresetcounter {
 	sql_module_instance = sql
 	dialect = ${modules.sql.dialect}
 
-	counter_name = &Max-All-Session-Time
-	check_name = &control.Max-All-Session
-	key = &User-Name
-
+	counter_name = Max-All-Session-Time
+	check_name = Max-All-Session
+	key = User-Name
 	reset = never
 
 	$INCLUDE ${modconfdir}/sql/counter/${dialect}/${.:instance}.conf
 }
 
 #
-#  ### Expire on login
-#
-#  Set an account to expire T seconds after first login. Requires the `Expire-After`
-#  attribute to be set, in seconds.
-#
-#  NOTE: You may need to edit `raddb/dictionary` to add the `Expire-After` attribute.
-#
+#  Set an account to expire T seconds after first login.
+#  Requires the Expire-After attribute to be set, in seconds.
+#  You may need to edit raddb/dictionary to add the Expire-After
+#  attribute.
 sqlcounter expire_on_login {
 	sql_module_instance = sql
 	dialect = ${modules.sql.dialect}
 
-	counter_name = &Expire-After-Initial-Login
-	check_name = &control.Expire-After
-	key = &User-Name
-
+	counter_name = Expire-After-Initial-Login
+	check_name = Expire-After
+	key = User-Name
 	reset = never
 
 	$INCLUDE ${modconfdir}/sql/counter/${dialect}/${.:instance}.conf

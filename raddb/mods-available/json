@@ -7,71 +7,9 @@
 #
 #  = JSON Module
 #
-#  The `json` module registers a `map` function to allow mapping fields from
-#  JSON structures to attributes. It also adds some xlats for processing and
-#  generating JSON documents.
-#
-#  ## JSON 'map' function
-#
-#  The path through the JSON document's tree is specified with FR jpath,
-#  which is the FreeRADIUS implementation of the jpath grammar described
-#  at http://goessner.net/articles/JsonPath/
-#
-#  Selectors currently implemented are:
-#
-#  [options="header,autowidth"]
-#  |===
-#  | Selector                 | Description
-#  | $                        | Root node (only valid at the start of the path).
-#  | @                        | Current node (only valid at the start of the path).
-#  | .<name>                  | A field within an object.
-#  | [<idx>]                  | Index within an array.
-#  | [<start>:<end>[:<step>]] | A slice within an array (identical to the Python syntax).
-#  | [<idx>,<start>:<end>]    | Multiple indexes/slices within an array.
-#  | .*                       | All the children of the current node.
-#  | ..                       | Recursive descent.
-#  |===
-#
-#  [NOTE]
-#  ====
-#  * Automatic casting will occur between JSON and attribute types where possible.
-#  * Assignment of JSON objects/arrays to strings is supported, in which case the
-#    JSON serialized form of the object/array is used.
-#  * If a jpath matches multiple nodes, unless the map includes the `+=` operator
-#  * only the first node's value will be used.
-#  * If the map uses `+=` then multiple instances of the attribute will be created,
-#    each holding a different node value.
-#  ====
-#
-#
-#  ## Sample
-#
-#  Assuming that the URL http://example.org/api/user/$username replies with
-#  some JSON content as below.
-#
-#  [source, json]
-#  ----
-#  {
-#    "user": "bob",
-#    "account number": 7124503,
-#    "groups": [
-#      "admin",
-#      "networks",
-#      "bob"
-#    ]
-#  }
-#  ----
-#
-#  In this case, the `rest` module can be used to get the JSON data and the
-#  fields can be accessed using 'map' as shown in the example below.
-#
-#  [source, unlang]
-#  ----
-#  map json "%rest(GET http://example.org/api/user/%{User-Name})" {
-#    &Foo            := '$.account number'
-#    &Group          += '$.groups.*'
-#  }
-#  ----
+#  The `json` module provides the `json_encode` XLAT, which may be
+#  used to encode a given list of attributes into different
+#  formats of JSON object.
 #
 
 #
@@ -81,7 +19,7 @@ json {
 
 	#
 	#  The only options for the JSON module are to control the output
-	#  format of the `json.encode` xlat.
+	#  format of the `json_encode` xlat.
 	#
 	encode {
 
@@ -160,53 +98,9 @@ json {
 #
 #  ## Expansions
 #
-#  rlm_json provides the below xlat functions to handle the JSON documents.
+#  rlm_json provides the below xlat function.
 #
-#  ### %json.jpath_validate(...)
-#
-#  Determine if a jpath expression is valid.
-#
-#  NOTE: Validate parser for everything except unions and expressions.
-#
-#  .Return: _size_t_
-#
-#  .Example
-#
-#  [source,unlang]
-#  ----
-#  string payload
-#  payload := '$.my.json.payload[1]'
-#  &reply.Reply-Message := "Validation of %{payload} is %json.jpath_validate($.my.json.payload[1])"
-#  ----
-#
-#  .Output
-#
-#  ```
-#  Validation of $.my.json.payload[1] is 20:$.my.json.payload[1]
-#  ```
-#
-#  ### %json.quote(...)
-#
-#  Escapes string for use as a JSON string.
-#
-#  .Return: _string_
-#
-#  .Example
-#
-#  [source,unlang]
-#  ----
-#  string path
-#  &path := "caipirinha/gelada"
-#  &reply.Reply-Message := "The string %{path} should be %json.quote(%{path}) to be a valid JSON string."
-#  ----
-#
-#  .Output
-#
-#  ```
-#  The string caipirinha/gelada should be caipirinha\\/gelada to be a valid JSON string.
-#  ```
-#
-#  ### %json.encode(...)
+#  ### %{json_encode:...}
 #
 #  Generates a JSON document from a given list of attribute templates. The
 #  format of document generated can be controlled with the 'encode' section in
@@ -219,7 +113,7 @@ json {
 #
 #  The xlat should be passed a list of attributes to encode. Each attribute
 #  (after template expansion) will be added to a list of attributes to include
-#  in the JSON document. If any of the attributes given are preceded with a `!`
+#  in the JSON document. If any of the attributes given are preceeded with a `!`
 #  then they are removed from the list. Once all attributes have been processed,
 #  the JSON document will be created using this list.
 #
@@ -229,7 +123,7 @@ json {
 #  .Example
 #
 #  ```
-#  %json.encode(&User-Name, &Calling-Station-Id)
+#  %{json_encode:&User-Name &Calling-Station-Id}
 #  ```
 #
 #  The following will include all attributes in the RADIUS request, except for
@@ -238,7 +132,7 @@ json {
 #  .Example
 #
 #  ```
-#  %json.encode(&request[*], !&User-Password)
+#  %{json_encode:&request[*] !&User-Password}
 #  ```
 #
 #  In another (contrived) example, all the attributes in the RADIUS request will
@@ -248,7 +142,7 @@ json {
 #  .Example
 #
 #  ```
-#  %json.encode(&request[*], !&reply[*], &control.User-Name)
+#  %{json_encode:&request[*] !&reply[*] &control:User-Name}
 #  ```
 #
 #  #### Output format modes

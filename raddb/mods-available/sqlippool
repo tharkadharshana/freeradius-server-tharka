@@ -1,151 +1,109 @@
-#  -*- text -*-
+#  Configuration for the SQL based IP Pool module (rlm_sqlippool)
 #
+#  The database schemas are available at:
+#
+#       raddb/mods-config/sql/ippool/<DB>/schema.sql
 #
 #  $Id$
 
-#######################################################################
-#
-#  = SQL-IP-Pool Module
-#
-#  The module `sqlippool` provide configuration for the SQL based IP Pool module.
-#
-#  NOTE: The database schemas are available at `raddb/sql/ippool/<DB>/schema.sql`.
-#
-#  ## Configuration Settings
-#
 sqlippool {
+	# SQL instance to use (from mods-available/sql)
 	#
-	#  sql_module_instance:: SQL instance to use (from `raddb/mods-available/sql`)
-	#
-	#  If you have multiple sql instances, such as `sql sql1 {...}`,
-	#  use the *instance* name here: `sql1`.
-	#
+	#  If you have multiple sql instances, such as "sql sql1 {...}",
+	#  use the *instance* name here: sql1.
 	sql_module_instance = "sql"
 
-	#
-	#  dialect:: This is duplicative of info available in the SQL module, but
+	#  This is duplicative of info available in the SQL module, but
 	#  we have to list it here as we do not yet support nested
 	#  reference expansions.
-	#
 	dialect = "mysql"
 
-	#
-	#  ippool_table:: SQL table to use for ippool range and lease info.
-	#
-	ippool_table = "fr_ippool"
+	# Name of the check item attribute to be used as a key in the SQL queries
+	pool_name = "Pool-Name"
 
+	# SQL table to use for ippool range and lease info
+	ippool_table = "radippool"
+
+	# IP lease duration. (Leases expire even if Acct Stop packet is lost)
 	#
-	#  lease_duration:: IP lease duration.
+	#  Note that you SHOULD also set Session-Timeout to this value!
+	#  That way the NAS will automatically kick the user offline when the
+	#  lease expires.
 	#
 	lease_duration = 3600
 
 	#
-	#  offer_duration:: DHCP offer duration.
+	# Timeout between each consecutive 'allocate_clear' queries (default: 1s)
+	# This will avoid having too many deadlock issues, especially on MySQL backend.
 	#
-	offer_duration = 60
+	allocate_clear_timeout = 1
 
 	#
-	#  pool_name: The attribute which contains the pool name.
+	#  The attribute to use for IP address assignment.  The
+	#  default is Framed-IP-Address.  You can change this to any
+	#  attribute which is IPv4 or IPv6.
 	#
-	pool_name = &control.IP-Pool.Name
+	#  e.g. Framed-IPv6-Prefix, or Delegated-IPv6-Prefix.
+	#
+	#  All of the default queries use this attribute_name.  So you
+	#  can do IPv6 address assignment simply by putting IPv6
+	#  addresses into the pool, and changing the following line to
+	#  "Framed-IPv6-Prefix"
+	#
+	#  Note that you MUST use separate pools for each attribute.  i.e. one pool
+	#  for Framed-IP-Address, a different one for Framed-IPv6-prefix, etc.
+	#
+	#  This means configuring separate "sqlippool" instances, and different
+	#  "ippool_table" in SQL.  Then, populate the pool with addresses and
+	#  it will all just work.
+	#
+	attribute_name = Framed-IP-Address
 
 	#
-	#  allocated_address_attr:: List and attribute where the allocated address is written to.
+	#  Assign the IP address, even if the above attribute already exists
+	#  in the reply.
 	#
-	#  [NOTE]
-	#  ====
-	#  It MUST be a qualified name of an attribute of a type which contains IP addresses.
-	#
-	#  e.g. `ipaddr`, `ipv4prefix,` `ipv6addr`, or `ipv6prefix`.
-	#  ====
-	allocated_address_attr = &reply.Framed-IP-Address
+#	allow_duplicates = no
 
-	#
-	#  owner:: Expansion which identifies the owner of the lease.
-	#
-	#  For an operation (i.e. a request to extend a lease, or release an
-	#  IP address) to be applied, the owner specified in the incoming
-	#  packet must match the owner recorded for the lease.
-	#
-	#  For purposes such as IP assignment using a RADIUS Framed-IP-Address
-	#  attribute the "owner" identifier could be a `User-Name` or a
-	#  certificate serial number provided that the number of sessions is
-	#  limited to one per user/serial.
-	#
-	#  For RADIUS the owner will likely be specified by:
-	#
-	#  * `%{Calling-Station-Id}` which binds the lease to the mac address
-	#    of the user's device.  For RADIUS this is almost always the better
-	#    option as it can allow the user's device to move between NAS.
-	#
-	#  * `%{NAS-Port}` which binds the lease to a given port on the NAS.
-	#    i.e. any device on that port can modify the lease.  This should only
-	#    be used when the port is constant for the length of the session
-	#    (nearly everywhere except 802.11 wireless).
-	#
-	#  For DHCPv4 the owner will likely be specified by:
-	#
-	#  * `%{Client-Hardware-Address}` which binds the lease to the
-	#    mac address of the user's device.
-	#
-	#  * `%{&Client-Identifier || &Client-Hardware-Address}`
-	#    which binds the lease to either the custom identifier set by the
-	#    DHCP client, or if this is absent, the mac address of the user's
-	#    device.
-	#
-	#  On a hostile network the owner SHOULD include a component that you
-	#  trust, arranged such that the overall value cannot be spoofed by
-	#  manipulation of the user-controlled data (i.e. the mac or identifier)
-	#  provided by the user's device.
-	#
-	#  For example it might be that the value `Vendor-Specific.ADSL-Forum.Agent-Circuit-ID` is
-	#  considered trusted as it's set by a controlled device at the edge of
-	#  the network.  Calling-Station-Id however, is usually provided by
-	#  the user's device so may be spoofed.
-	#
-	#  In order to prevent an attacker releasing DHCP leases for another
-	#  device on the network, the owner string should be constructed so
-	#  that it contains both the trusted and untrusted attributes, or if
-	#  the trusted attribute is sufficiently stable and unique, only the
-	#  trusted attribute.
-	#  One example would be `%{Vendor-Specific.ADSL-Forum.Agent-Circuit-ID}.%{Calling-Station-Id}`.`
-	#
-	owner = "%{Calling-Station-ID}"
+	#  The attribute in which an IP address hint may be supplied
+	req_attribute_name = Framed-IP-Address
 
-#       owner = "%{Vendor-Specific.ADSL-Forum.Agent-Circuit-ID}.%{Calling-Station-Id}"
+	# Attribute which should be considered unique per NAS
+	#
+	#  Using NAS-Port gives behaviour similar to rlm_ippool. (And ACS)
+	#  Using Calling-Station-Id works for NAS that send fixed NAS-Port
+	#  ONLY change this if you know what you are doing!
+	pool_key = "%{NAS-Port}"
+	# pool_key = "%{Calling-Station-Id}"
 
-#	owner = "%{&Client-Identifier || &Client-Hardware-Address}"
+	################################################################
+	#
+	#  WARNING: MySQL (MyISAM) has certain limitations that means it can
+	#           hand out the same IP address to 2 different users.
+	#
+	#           We suggest using an SQL DB with proper transaction
+	#           support, such as PostgreSQL, or using MySQL
+	#	     with InnoDB.
+	#
+	################################################################
 
+	#  These messages are added to the "control" items, as
+	#  Module-Success-Message.  They are not logged anywhere else,
+	#  unlike previous versions.  If you want to have them logged
+	#  to a file, see the "linelog" module, and create an entry
+	#  which writes Module-Success-Message message.
 	#
-	#  requested_address:: The IP address being renewed or released.
-	#
-	#  For RADIUS the requested_address will almost always be `%{Framed-IP-Address}`.
-	#
-	#  For DHCPv4 the requested_address will almost always be
-	#  `%{&Requested-IP-Address || &Client-IP-Address}`.
-	#
-	requested_address = "%{Framed-IP-Address}"
+	messages {
+		exists = "Existing IP: %{reply:${..attribute_name}} (did %{Called-Station-Id} cli %{Calling-Station-Id} port %{NAS-Port} user %{User-Name})"
 
-#	requested_address = "%{&Requested-IP-Address || &Client-IP-Address}"
+		success = "Allocated IP: %{reply:${..attribute_name}} from %{control:${..pool_name}} (did %{Called-Station-Id} cli %{Calling-Station-Id} port %{NAS-Port} user %{User-Name})"
 
-	#
-	#  gateway:: The device controlling access to the network or relaying
-	#  DHCP packets.
-	#
-	#  For RADIUS, this device is recorded so that if an Accounting-On or
-	#  Accounting-Off packet is received, then all leases associated with
-	#  the gateway can be released. 'gateway' in this context is synonymous
-	#  with the NAS the user is connected to.
-	#
-	#  For DHCPv4, this device is recorded so that we can respond correctly
-	#  to lease queries.
-	#
-	gateway = "%{&NAS-Identifier || &NAS-IP-Address}"
+		clear = "Released IP %{request:${..attribute_name}} (did %{Called-Station-Id} cli %{Calling-Station-Id} user %{User-Name})"
 
-#       gateway = "%{Gateway-IP-Address}"
+		failed = "IP Allocation FAILED from %{control:${..pool_name}} (did %{Called-Station-Id} cli %{Calling-Station-Id} port %{NAS-Port} user %{User-Name})"
 
-	#
-	#  .Load the queries from a separate file.
-	#
+		nopool = "No ${..pool_name} defined (did %{Called-Station-Id} cli %{Calling-Station-Id} port %{NAS-Port} user %{User-Name})"
+	}
+
 	$INCLUDE ${modconfdir}/sql/ippool/${dialect}/queries.conf
 }

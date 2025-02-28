@@ -6,6 +6,7 @@
 #
 ######################################################################
 
+
 #
 #	This client will be available to any "listen" section that
 #	are defined outside of a virtual server section.  However,
@@ -37,7 +38,6 @@
 #	and examples, and should not appear on the net.  You shouldn't
 #	use it for anything, either.
 #
-
 client 192.0.2.10 {
 	shortname	= example-client
 	secret		= testing123
@@ -56,7 +56,7 @@ server example {
 	#	Listen on 192.0.2.1:1812 for Access-Requests
 	#
 	#	When the server receives a packet, it is processed
-	#	through the "recv ...", etc. sections listed here,
+	#	through the "authorize", etc. sections listed here,
 	#	NOT the global ones the "default" site.
 	#
 	listen {
@@ -88,12 +88,14 @@ server example {
 		secret		= testing123
 	}
 
-	recv Access-Request {
+	authorize {
 		#
 		#  Some example policies.  See "man unlang" for more.
 		#
-		if (User-Name == "bob") {
-			control.Password.Cleartext := "bob"
+		if (&User-Name == 'bob') {
+			update control {
+				&Cleartext-Password := 'bob'
+			}
 		}
 
 		#
@@ -104,12 +106,17 @@ server example {
 		reject
 	}
 
-	send Access-Accept {
+	authenticate {
 
 	}
 
-	send Access-Reject {
-		reply.Reply-Message = "This is only an example."
+	post-auth {
+
+		Post-Auth-Type Reject {
+			update reply {
+				&Reply-Message = 'This is only an example.'
+			}
+		}
 	}
 
 }

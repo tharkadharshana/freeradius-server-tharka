@@ -1,0 +1,9 @@
+barred_user_policy{
+    #Checking if user is barred
+    if ("%{&control:Barring-Status}" != 0 ) {
+        update reply {
+            Reply-Message := "User is barred"
+        }
+        reject
+    }
+}

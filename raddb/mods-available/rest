@@ -1,328 +1,152 @@
-#  -*- text -*-
-#
-#
-#  $Id$
-
-#######################################################################
-#
-#  = Rest Module
-#
-#  The `rest` module sends HTTP requests to remote servers and decodes
-#  the responses. Can also perform basic auth with user's credentials.
-#
-#  See RFC 2616 for more details about HTTP.
-#
-
 rest {
 	#
-	#  tls { ... }:: Configure the tls related items that control
-	#  how FreeRADIUS connects to a HTTPS server.
+	#  This subsection configures the tls related items
+	#  that control how FreeRADIUS connects to a HTTPS
+	#  server.
 	#
 	tls {
-		#
-		#  .Certificate validation options
-		#
-		#  Specifies how the certificate(s) presented by the HTTPS server being contacted
-		#  are validated, and which certificates (if any) to send to the HTTPS server.
-		#
+		#  Certificate Authorities:
+		#  "ca_file" (libcurl option CURLOPT_ISSUERCERT).
+		#    File containing a single CA, which is the issuer of the server
+		#    certificate.
+		#  "ca_info_file" (libcurl option CURLOPT_CAINFO).
+		#    File containing a bundle of certificates, which allow to handle
+		#    certificate chain validation.
+		#  "ca_path" (libcurl option CURLOPT_CAPATH).
+		#    Directory holding CA certificates to verify the peer with.
+#		ca_file = ${certdir}/cacert.pem
+#		ca_info_file = ${certdir}/cacert_bundle.pem
+#		ca_path = ${certdir}
 
-		#
-		#  ca_file:: PEM formatted file containing the chain to validate the HTTPS server's cert
-		#
-		#  Should usually contain a concatenation of one or more intermediary CA
-		#  files, shallowest (i.e. the one that signed the HTTPS server's cert) first, and
-		#  deepest (the root CA) last.
-		#
-		#  Providing a complete certificate chain here is the most common way of validating
-		#  the certificate presented by a HTTPS server.
-		#
-#		ca_file	             = "${certdir}/cacert.pem"
+#		certificate_file        = /path/to/radius.crt
+#		private_key_file        = /path/to/radius.key
+#		private_key_password    = "supersecret"
+#		random_file             = /dev/urandom
 
+		#  Server certificate verification requirements.  Can be:
+		#    "no"  (don't even bother trying)
+		#    "yes" (verify the cert was issued by one of the
+		#          trusted CAs)
 		#
-		#  ca_issuer_file:: PEM formatted file containing the CA that signed the HTTPS server's cert
-		#
-		#  Specifies the certificate that directly signed the certificate presented by the
-		#  HTTPS server.
-		#
-		#  This configuration option can be used to prevent certificates passing validation that
-		#  were signed by other intermediary CAs or root CAs in the trusted certificate chain.
-		#
-#		ca_issuer_file     = "${certdir}/caissuer.pem"
+		#  The default is "yes"
+#		check_cert = yes
 
+		#  Server certificate CN verification requirements.  Can be:
+		#    "no"  (don't even bother trying)
+		#    "yes" (verify the CN in the certificate matches the host
+		#          in the URI)
 		#
-		#  ca_path:: A directory containing multiple root CA certs named by their hash
-		#
-		#  See the OpenSSL documentation for more details:
-		#  - https://www.openssl.org/docs/man1.1.0/man3/SSL_CTX_set_default_verify_paths.html
-		#  - https://www.openssl.org/docs/man1.1.1/man1/c_rehash.html
-		#
-		#  This configuration option should only be used when the HTTPS server being contacted
-		#  is not known ahead of time (using a URL from an external source), and/or the CA used
-		#  to sign the HTTPS server certificate is unknown.
-		#
-		#  If not set, then whatever libcurl has as its default will be used, which typically
-		#  will be the operating system's set of trusted CAs.  This will be visible in the debug
-		#  output when FreeRADIUS starts.
-		#
-#		ca_path	             = "${certdir}"
-
-		#
-		#  certificate_file:: PEM formatted file containing the certificate we present to the HTTPS server
-		#
-		#  Specifies a certificate and any intermediary CAs we should send to the HTTPS server.
-		#
-		#  This file should usually contain the client certificate file first, then any
-		#  intermediary signing CAs, shallowest (direct signee of the certificate_file)
-		#  to deepest (signed directly by the root CA).
-		#
-#		certificate_file     = /path/to/radius.pem
-
-		#
-		#  private_key_file:: PEM formatted file containing the private key for the specified certificate_file
-		#
-		#  Must be specified if certificate_file is being used.
-		#
-#		private_key_file     = /path/to/radius.key
-
-		#
-		#  private_key_password:: Password used to decrypt the private key file.
-		#
-		#  Should only be specified in the private_key_file is encrypted.
-		#
-#		private_key_password = "supersecret"
-
-		#
-		#  random_file:: Source of random data used for various cryptographic functions.
-		#
-#		random_file          = /dev/urandom
-
-		#
-		#  check_cert:: Server certificate verification requirements.
-		#
-		#  May be one of:
-		#
-		#  [options="header,autowidth"]
-		#  |===
-		#  | Option | Description
-		#  | `no`   | Server certificate can be signed by any CA or be self-signed.
-		#  | `yes`  | Server certificate must be issued by one of the trusted CAs.
-		#  |===
-		#
-		#  Default is `yes`
-		#
-#		check_cert = no
-
-		#
-		#  check_cert_cn:: Server certificate CN verification requirements.
-		#
-		#  May be one of:
-		#
-		#  [options="header,autowidth"]
-		#  |===
-		#  | Option | Description
-		#  | `no`   | Server certificate CN can be any value.
-		#  | `yes`  | Server certificate CN matches the host in the URI.
-		#  |===
-		#
-		#  Default is `yes`
-		#
-#		check_cert_cn = no
-
-		#
-		#  extract_cert_attrs:: Extract OIDs from presented certificates as OIDs.
-		#
-		#  Default is `no`
-		#
-#		extract_cert_attrs = no
-
-		#
-		#  keylog_file:: Write out session keys in SSLKEYLOGFILE format
-		#
-		#  The SSLKEYLOGFILE format is specified here https://www.ietf.org/archive/id/draft-thomson-tls-keylogfile-00.html.
-		#
-		#  The contents of the keylog file allows wireshark captures to be decrypted for debugging purposes.
-		#
-		#  Note:: keylog_file is not expanded at runtime.
-		#
-#		keylog_file = '/path/to/keylog_file'
+		#  The default is "yes"
+#		check_cert_cn = yes
 	}
 
+	# rlm_rest will open a connection to the server specified in connect_uri
+	# to populate the connection cache, ready for the first request.
+	# The server will not start if the server specified is unreachable.
 	#
-	#  connect_uri:: Base URI used to avoid repetition in sections below.
-	#
-	connect_uri = "http://127.0.0.1:9090/"
+	# If you wish to disable this pre-caching and reachability check,
+	# comment out the configuration item below.
+	connect_uri = "http://127.0.0.1/"
 
 	#
-	#  connect_proxy:: Proxy server used for all outbound connections.
+	#  How long before new connection attempts timeout, defaults to 4.0 seconds.
 	#
-#	connect_proxy = "socks://127.0.0.1"
+#	connect_timeout = 4.0
 
 	#
-	#  http_negotiation:: The negotiation scheme and target HTTP version.
+	# Specify HTTP protocol version to use. one of '1.0', '1.1', '2.0', '2.0+auto',
+	# '2.0+tls' or 'default'. (libcurl option CURLOPT_HTTP_VERSION)
 	#
-	#  May be one of:
-	#
-	#  [options="header,autowidth"]
-	#  |===
-	#  | Option     | Description
-	#  | `default`  | Use whichever negotiation scheme and version is the default
-	#                 for `libcurl`.
-	#  | `1.0`      | Disable negotiation.  Force HTTP `1.0`.
-	#  | `1.1`      | Disable negotiation.  Force HTTP `1.1`.
-	#  | `2.0`      | Disable negotiation.  Force HTTP `2.0`.
-	#  | `2.0+auto` | Try and negotiate 2.0 and fallback to `1.1`.
-	#  | `2.0+tls`  | For `https` try and negotiate 2.0 and fallback to `1.1`.
-	#                 For `http` try and negotiate 2.0 and fallback to `1.1`.
-	#  |===
-	#
-#	http_negotiation = "default"
+#	http_negotiation = 1.1
 
-	#
-	#  multiplex:: Execute multiple requests simultaneously using the same HTTP connection.
-	#
-	#  NOTE: HTTP >= 2.0 is required for multiplexing to succeed. If we can't negotiate
-	#  a high enough http version, multiplexing will be silently disabled.
-	#
-#	multiplex = yes
-
-	#
-	#  chunk:: Max chunk-size.
-	#
-#	chunk = 0
-
-	#
-	#  ## Sections
 	#
 	#  The following config items can be used in each of the sections.
 	#  The sections themselves reflect the sections in the server.
+	#  For example if you list rest in the authorize section of a virtual server,
+	#  the settings from the authorize section here will be used.
 	#
-	#  For example, if you list `rest` in the `authorize` section of a `virtual server`,
-	#  the settings from the `authorize` section here will be used.
+	#  The following config items may be listed in any of the sections:
+	#    uri          - to send the request to.
+	#    method       - HTTP method to use, one of 'get', 'post', 'put', 'patch',
+	#                   'delete' or any custom HTTP method.
+	#    body         - The format of the HTTP body sent to the remote server.
+	#                   May be 'none', 'post' or 'json', defaults to 'none'.
+	#    attr_num     - If true, the attribute number is supplied for each attribute.
+	#                   Defaults to false.
+	#    raw_value    - If true, enumerated attribute values are provided as numeric
+	#                   values. Defaults to false.
+	#    data         - Send custom freeform data in the HTTP body. Content-type
+	#                   may be specified with 'body'. Will be expanded.
+	#                   Values from expansion will not be escaped, this should be
+	#                   done using the appropriate xlat method e.g. %{urlencode:<attr>}.
+	#    force_to     - Force the response to be decoded with this decoder.
+	#                   May be 'plain' (creates reply:REST-HTTP-Body), 'post'
+	#                   or 'json'.
+	#    tls          - TLS settings for HTTPS.
+	#    auth         - HTTP auth method to use, one of 'none', 'srp', 'basic',
+	#                   'digest', 'digest-ie', 'gss-negotiate', 'ntlm',
+	#                   'ntlm-winbind', 'any', 'safe'. defaults to 'none'.
+	#    username     - User to authenticate as, will be expanded.
+	#    password     - Password to use for authentication, will be expanded.
+	#    require_auth - Require HTTP authentication.
+	#    timeout      - HTTP request timeout in seconds, defaults to 4.0.
+	#    chunk        - Chunk size to use. If set, HTTP chunked encoding is used to
+	#                   send data to the REST server. Make sure that this is large
+	#                   enough to fit your largest attribute value's text
+	#                   representation.
+	#                   A number like 8192 is good.
 	#
-	#  The following sections are supported:
-	#
-	#  - `authorize { ... }`
-	#  - `authenticate { ... }`
-	#  - `accounting { ... }`
-	#  - `post-auth { ... }`
-	#  - `xlat { ... }`
-	#
-	#  At the top level of each section, the following config items may be listed:
-	#
-	#  [options="header,autowidth"]
-	#  |===
-	#  | Option        		| Description
-	#  | `request { ... }`          | How to create the HTTP request.
-	#  | `response { ... }`         | How to decode the response.
-	#  | `tls`          		| TLS settings for HTTPS.
-	#  | `timeout`      		| HTTP request timeout in seconds, defaults to 4.0.
-	#  |===
-	#
-	#  In the `request { ... }` subsection, the following config items may be listed:
-	#
-	#  [options="header,autowidth"]
-	#  |===
-	#  | Option         | Description								| Allowed in `xlat { ... }`
-	#  | `uri`          | To send the request to.							| no
-	#  | `proxy`        | The request via this server, supports `socks/http/https` uri and `:port`. | no
-	#                     May be set to "none" to disable proxying, overriding any environmental
-	#		      variables set like http_proxy.
-	#  | `method`       | HTTP method to use, one of 'get', 'post', 'put', 'patch',			| no
-	#                     'delete' or any custom HTTP method.
-	#  | `header`       | A custom header in the format '<header>: <value>'.			| yes
-	#		      May be specified multiple times.  Will be expanded.
-	#  | `body`         | The format of the HTTP body sent to the remote server.			| yes
-	#                     May be 'none', 'post' or 'json', defaults to 'none'.
-	#  | `data`         | Send custom freeform data in the HTTP body. `Content-type`		| yes
-	#                     may be specified with `body`. Will be expanded.
-	#                     Values from expansion will not be escaped, this should be
-	#		      done using the appropriate `xlat` method e.g.
-	#		      `%urlquote(<attr>)`
-	#  | `auth`         | HTTP auth method to use, one of 'none', 'srp', 'basic',			| yes
-	#                     'digest', 'digest-ie', 'gss-negotiate', 'ntlm',
-	#                     'ntlm-winbind', 'any', 'safe'. defaults to _'none'_.
-	#  | `require_auth` | Require HTTP authentication or fail the request.				| yes
-	#  | `username`     | User to authenticate as.  Will be expanded.				| yes
-	#		      Defaults to `%{User-Name}` in the `authenticate { ... }` section.
-	#  | `password`     | Password to use for authentication.  Will be expanded.			| yes
-	#		      Defaults to `%{User-Password}` in the `authenticate { ... }` section.
-	#  |===
-	#
-	#
-	#  In the `response { ... }` subsection, the following config items may be listed:
-	#
-	#  [options="header,autowidth"]
-	#  |===
-	#  | Option         | Description
-	#  | `header`       | Where to write out HTTP headers included in the response.
-	#		      Must resolve to a leaf attribute i.e. &reply.REST-HTTP-Header.
-	#		      If unspecified, headers will be discarded.
-	#		      Values will be in the format '<header>: <value>'.
-	#  | `force_to`     | Force the response to be decoded with this decoder.
-	#                     May be 'plain' (creates reply.REST-HTTP-Body), 'post' or 'json'.
-	#  | `max_body_in`  | Maximum size of incoming HTTP body, defaults to 16k.
-	#  |===
-	#
-	#  Additional HTTP headers may be specified with `control.REST-HTTP-Header`.
-	#
+	#  Additional HTTP headers may be specified with control:REST-HTTP-Header.
 	#  The values of those attributes should be in the format:
 	#
-	#    <attribute>: <value>
+	#    control:REST-HTTP-Header := "<HTTP attribute>: <value>"
 	#
-	#  `control.REST-HTTP-Header` attributes will be consumed after each call
-	#  to the rest module, and each `%rest(...)` expansion.
+	#  The control:REST-HTTP-Header attributes will be consumed
+	#  (i.e. deleted) after each call to the rest module, and each
+	#  %{rest:} expansion.  This is so that headers from one REST
+	#  call do not affect headers from a different REST call.
 	#
-
+	#  Body encodings are the same for requests and responses
 	#
-	#  .Body encodings are the same for requests and responses
+	#  POST - All attributes and values are urlencoded
+	#  [outer.][<list>:]<attribute0>=<value0>&[outer.][<list>:]<attributeN>=<valueN>
 	#
-	#  POST - All attributes and values are urlencoded.
-	#
-	#  e.g:
-	#
-	#  `[outer.][<list>.]<attribute0>=<value0>&[outer.][<list>.]<attributeN>=<valueN>`
-	#
-	#  JSON - All attributes and values are escaped according to the JSON specification.
-	#
-	#  e.g:
-	#
-	#  [source,json]
-	#  ----
+	#  JSON - All attributes and values are escaped according to the JSON specification
+	#  - attribute  Name of the attribute.
+	#  - attr_num   Number of the attribute. Only available if the configuration item
+	#               'attr_num' is enabled.
+	#  - type       Type of the attribute (e.g. "integer", "string", "ipaddr", "octets", ...).
+	#  - value      Attribute value, for enumerated attributes the human readable value is
+	#               provided and not the numeric value (Depends on the 'raw_value' config item).
 	#  {
 	#      "<attribute0>":{
+	#          "attr_num":<attr_num0>,
 	#          "type":"<type0>",
 	#          "value":[<value0>,<value1>,<valueN>]
 	#      },
 	#      "<attribute1>":{
+	#          "attr_num":<attr_num1>,
 	#          "type":"<type1>",
 	#          "value":[...]
 	#      },
 	#      "<attributeN>":{
+	#          "attr_num":<attr_numN>,
 	#          "type":"<typeN>",
 	#          "value":[...]
 	#      },
 	#  }
-	#  ----
 	#
 	#  The response format adds three optional fields:
-	#
-	#  [options="header,autowidth"]
-	#  |===
-	#  | Fields    | Description
-	#  | `do_xlat` | If `true`, any values will be xlat expanded. Defaults to `true`.
-	#  | `is_json` | If `true`, any nested JSON data will be copied to the attribute
-	#                in string form. Defaults to `true`.
-	#  | `op`      | Controls how the attribute is inserted into the target list.
-	#                Defaults to `:=`. To create multiple attributes from multiple
-	#                values, this should be set to `+=`, otherwise only the last
-	#                value will be used, and it will be assigned to a single
-	#                attribute.
-	#  |===
-	#
-	#  [source,json]
-	#  ----
+	#  - do_xlat    If true, any values will be xlat expanded. Defaults to true.
+	#  - is_json    If true, any nested JSON data will be copied to the attribute
+	#               in string form. Defaults to true.
+	#  - op         Controls how the attribute is inserted into the target list.
+	#               Defaults to ':='. To create multiple attributes from multiple
+	#               values, this should be set to '+=', otherwise only the last
+	#               value will be used, and it will be assigned to a single
+	#               attribute.
 	#  {
-	#      "[outer.][<list>.]<attribute0>":{
+	#      "<attribute0>":{
 	#          "is_json":<bool>,
 	#          "do_xlat":<bool>,
 	#          "op":"<operator>",
@@ -334,154 +158,144 @@ rest {
 	#          "op":"+="
 	#      }
 	#  }
-	#  ----
+
 	#
-	#  [NOTE]
-	#  ====
-	#  * Module return codes are determined by HTTP response codes. These vary depending on the
+	#  Module return codes are determined by HTTP response codes. These vary depending on the
 	#  section.
 	#
-	#  * If the `body` is processed and found to be malformed or unsupported `fail` will be returned.
-	#  * If the `body` is processed and found to contain attribute updated will be returned,
-	#  except in the case of a `401` code.
-	#  ====
+	#  If the body is processed and found to be malformed or unsupported fail will be returned.
+	#  If the body is processed and found to contain attribute updated will be returned,
+	#  except in the case of a 401 code.
 	#
 
+	#  Authorize/Authenticate
 	#
-	#  xlat { ... }::: Allows a subset of section configuration items to be configured for
-	#  any calls to this module's `xlat` function.
+	#  Code   Meaning       Process body  Module code
+	#  404    not found     no            notfound
+	#  410    gone          no            notfound
+	#  403    forbidden     no            userlock
+	#  401    unauthorized  yes           reject
+	#  204    no content    no            ok
+	#  2xx    successful    yes           ok/updated
+	#  5xx    server error  no            fail
+	#  xxx    -             no            invalid
 	#
-	xlat {
-		tls = ${..tls}
-	}
-
-	#
-	#  ### Authorize { ... }
-	#
-	#  Default action when called in `recv` sections except `recv Accounting-Request`.
-	#
-	#  [options="header,autowidth"]
-	#  |===
-	#  | Code | Meaning      | Process body? | Module code
-	#  | 404  | not found    | no            | notfound
-	#  | 410  | gone         | no            | notfound
-	#  | 403  | forbidden    | no            | disallow
-	#  | 401  | unauthorized | yes           | reject
-	#  | 204  | no content   | no            | ok
-	#  | 2xx  | successful   | yes           | ok/updated
-	#  | 5xx  | server error | no            | fail
-	#  | xxx  | -            | no            | invalid
-	#  |===
+	#  The status code is held in %{reply:REST-HTTP-Status-Code}.
 	#
 	authorize {
-		request {
-			uri = "${...connect_uri}/user/%{User-Name}/mac/%{Called-Station-ID}?section=authorize"
-			method = 'GET'
-		}
+		uri = "${..connect_uri}/user/%{User-Name}/mac/%{Called-Station-ID}?action=authorize"
+		method = 'get'
 		tls = ${..tls}
 	}
-
-	#
-	#  ### Authenticate { ... }
-	#
-	#  Default action when called in `authenticate` sections.
-	#
-	#  Return codes handled the same as `Authorize { ... }`
-	#
 	authenticate {
-		request {
-			uri = "${...connect_uri}/user/%{User-Name}/mac/%{Called-Station-ID}?section=authenticate"
-			method = 'GET'
-		}
+		uri = "${..connect_uri}/user/%{User-Name}/mac/%{Called-Station-ID}?action=authenticate"
+		method = 'get'
 		tls = ${..tls}
 	}
 
+	#  Preacct/Accounting/Post-auth/Pre-Proxy/Post-Proxy
 	#
-	#  ### Accounting { ... }
-	#
-	#  Default action when called in `recv Accounting-Request` or `accounting` sections.
-	#
-	#  [options="header,autowidth"]
-	#  |===
-	#  | Code | Meaning      | Process body? | Module code
-	#  | 204  | no content   | no            | ok
-	#  | 2xx  | successful   | yes           | ok/updated
-	#  | 5xx  | server error | no            | fail
-	#  | xxx  | -            | no            | invalid
-	#  |===
-	#
+	#  Code   Meaning       Process body  Module code
+	#  204    no content    no            ok
+	#  2xx    successful    yes           ok/updated
+	#  5xx    server error  no            fail
+	#  xxx    -             no            invalid
+	preacct {
+		uri = "${..connect_uri}/user/%{User-Name}/sessions/%{Acct-Unique-Session-ID}?action=preacct"
+		method = 'post'
+		tls = ${..tls}
+	}
 	accounting {
-		request {
-			uri = "${...connect_uri}/user/%{User-Name}/sessions/%{Acct-Unique-Session-ID}"
-			method = 'POST'
-		}
+		uri = "${..connect_uri}/user/%{User-Name}/sessions/%{Acct-Unique-Session-ID}?action=accounting"
+		method = 'post'
 		tls = ${..tls}
 	}
-
-	#
-	#  ### Post-Auth { ... }
-	#
-	#  Default action when called in `send` sections.
-	#
-	#  Return codes handled the same as `Accounting { ... }`
-	#
 	post-auth {
-		request {
-			uri = "${...connect_uri}/user/%{User-Name}/mac/%{Called-Station-ID}?action=post-auth"
-			method = 'POST'
-		}
+		uri = "${..connect_uri}/user/%{User-Name}/mac/%{Called-Station-ID}?action=post-auth"
+		method = 'post'
+		tls = ${..tls}
+	}
+	pre-proxy {
+		uri = "${..connect_uri}/user/%{User-Name}/mac/%{Called-Station-ID}?action=pre-proxy"
+		method = 'post'
+		tls = ${..tls}
+	}
+	post-proxy {
+		uri = "${..connect_uri}/user/%{User-Name}/mac/%{Called-Station-ID}?action=post-proxy"
+		method = 'post'
+		tls = ${..tls}
+	}
+
+	#  Options for calling rest xlats
+	#  uri and method will be derived from the string provided to the xlat
+	xlat {
+		#
+		#  The whole string passed to a REST xlat is URI encoded.
+		#  With body_uri_encode = yes, any body data will remain encoded.
+		#  With body_uri_encode = no, the body data will be decoded and sent as provided.
+		#
+		body_uri_encode = yes
 		tls = ${..tls}
 	}
 
 	#
-	#  connection { ... }::  Configure how connection handles are
-	#  managed per thread.
+	#  The connection pool is used to pool outgoing connections.
 	#
-	connection {
+	pool {
+		#  Connections to create during module instantiation.
+		#  If the server cannot create specified number of
+		#  connections during instantiation it will exit.
+		#  Set to 0 to allow the server to start without the
+		#  web service being available.
+		start = ${thread[pool].start_servers}
 
-		#
-		#  Reusable connection handles are allocated in blocks.  These
-		#  parameters allow for tuning how that is done.
-		#
-		#  Since http requests are performed async, the settings here
-		#  represent outstanding http requests per thread.
-		#
-		reuse {
+		#  Minimum number of connections to keep open
+		min = ${thread[pool].min_spare_servers}
 
-			#
-			#  min:: The minimum number of connection handles to
-			#  keep allocated.
-			#
-			min = 10
-
-			#
-			#  max:: The maximum number of reusable connection handles
-			#  to allocate.
-			#
-			#  Any requests to allocate a connection handle beyond
-			#  this number will cause a temporary handle to be allocated.
-			#  This is less efficient than the block allocation so
-			#  `max` should be set to reflect the number of outstanding
-			#  requests expected at peak load.
-			max = 100
-
-			#
-			#  cleanup_interval:: How often to free un-used connection
-			#  handles.
-			#
-			#  Every `cleanup_interval` a cleanup routine runs which
-			#  will free any blocks of handles which are not in use,
-			#  ensuring that at least `min` handles are kept.
-			#
-			cleanup_interval = 30s
-
-		}
-
+		#  Maximum number of connections
 		#
-		#  connect_timeout:: Connection timeout (in seconds).
+		#  If these connections are all in use and a new one
+		#  is requested, the request will NOT get a connection.
 		#
-		#  The maximum amount of time to wait for a new connection to be established.
+		#  Setting 'max' to LESS than the number of threads means
+		#  that some threads may starve, and you will see errors
+		#  like 'No connections available and at max connection limit'
 		#
-		connect_timeout = 3.0
+		#  Setting 'max' to MORE than the number of threads means
+		#  that there are more connections than necessary.
+		max = ${thread[pool].max_servers}
+
+		#  Spare connections to be left idle
+		#
+		#  NOTE: Idle connections WILL be closed if "idle_timeout"
+		#  is set.  This should be less than or equal to "max" above.
+		spare = ${thread[pool].max_spare_servers}
+
+		#  Number of uses before the connection is closed
+		#
+		# 0 means "infinite"
+		uses = 0
+
+		#  The number of seconds to wait after the server tries
+		#  to open a connection, and fails.  During this time,
+		#  no new connections will be opened.
+		retry_delay = 30
+
+		#  The lifetime (in seconds) of the connection
+		lifetime = 0
+
+		#  idle timeout (in seconds).  A connection which is
+		#  unused for this length of time will be closed.
+		idle_timeout = 60
+
+		#  NOTE: All configuration settings are enforced.  If a
+		#  connection is closed because of "idle_timeout",
+		#  "uses", or "lifetime", then the total number of
+		#  connections MAY fall below "min".  When that
+		#  happens, it will open a new connection.  It will
+		#  also log a WARNING message.
+		#
+		#  The solution is to either lower the "min" connections,
+		#  or increase lifetime/idle_timeout.
 	}
 }

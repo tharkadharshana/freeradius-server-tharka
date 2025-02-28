@@ -1,8 +1,5 @@
-#  -*- text -*-
+# -*- text -*-
 ######################################################################
-#
-#  WARNING: This configuration file has not been updated for v4,
-#            and therefore WILL NOT WORK.  Please do not use it.
 #
 #	This is a sample configuration for robust proxy accounting.
 #	accounting packets are proxied, OR logged locally if all
@@ -24,8 +21,18 @@
 #	packets were written to the detail file.  But that would
 #	involve a lot more disk writes, which may not be a good idea.
 #
-#	NOTE: This file is NOT meant to be used as-is.  It needs to be
+#	This file is NOT meant to be used as-is.  It needs to be
 #	edited to match your local configuration.
+#
+#	Please see the sites-available/default file, in the
+#	"Post-Proxy-Type Fail-Accounting" section.  That should be
+#	configured to write packets to the "detail.example.com"
+#	file when proxying fails.  The "listen" section below will
+#	then read packets from that file, and proxy them.
+#
+#	See also mods-available/detail.example.com, which is the
+#	module that writes the "detail.example.com" file.
+#
 #
 #	$Id$
 #
@@ -70,9 +77,9 @@ home_server_pool acct_pool.example.com {
 
 	home_server = home1.example.com
 	home_server = home2.example.com
-	#  add more home_server's here.
+	# add more home_server's here.
 
-	#  for pre/post-proxy policies
+	# for pre/post-proxy policies
 	virtual_server = home.example.com
 }
 
@@ -103,12 +110,16 @@ server home.example.com {
 		#  cannot fail over to another (possibly) alive server.
 		#
 		#  We want to respond to the NAS, so that it can stop
-		#  resending the packet.  We write the packet to the
+		#  re-sending the packet.  We write the packet to the
 		#  "detail" file, where it will be read, and sent to
 		#  another home server.
 		#
 		Post-Proxy-Type Fail-Accounting {
 			detail.example.com
+
+			#  Now that the packet has been stored
+			#  mark that we can respond to the NAS
+			acct_response
 		}
 
 		#
@@ -116,7 +127,7 @@ server home.example.com {
 		#  proxying Access-Request packets
 		#
 		Post-Proxy-Type Fail-Authentication {
-			#  add policies here
+			# add policies here
 		}
 
 	}
@@ -134,7 +145,13 @@ server home.example.com {
 	listen {
 		type = detail
 		filename = "${radacctdir}/detail.example.com/detail-*:*"
-		load_factor = 10
+
+		#
+		#  See sites-available/buffered-sql for documentation
+		#  on the configuration items for a detail listener.
+		#
+		load_factor = 90
+		track = yes
 	}
 
 	#  All packets read from the detail file are proxied back to
@@ -149,10 +166,12 @@ server home.example.com {
 	#
 	#  When the home servers come back up, the packets are forwarded,
 	#  and the detail file processed as normal.
-	recv Accounting-Request {
-		#  You may want accounting policies here...
+	accounting {
+		# You may want accounting policies here...
 
-		control.Proxy-To-Realm := "acct_realm.example.com"
+		update control {
+			&Proxy-To-Realm := 'acct_realm.example.com'
+		}
 	}
 
 }

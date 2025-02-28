@@ -34,24 +34,24 @@ use warnings;
 use Data::Dumper;
 
 # Bring the global hashes into the package scope
-our (%RAD_REQUEST, %RAD_REPLY, %RAD_CONFIG, %RAD_STATE);
+our (%RAD_REQUEST, %RAD_REPLY, %RAD_CHECK, %RAD_STATE, %RAD_PERLCONF);
 
-# This hash holds the original request from radius
+# This is hash wich hold original request from radius
 #my %RAD_REQUEST;
 # In this hash you add values that will be returned to NAS.
 #my %RAD_REPLY;
-# This hash contains config items (was %RAD_CHECK in earlier versions)
-#my %RAD_CONFIG;
-# This is the session state
+#This is for check items
+#my %RAD_CHECK;
+# This is the session-sate
 #my %RAD_STATE;
-# This hash contains config items from "config" perl module configuration section
+# This is configuration items from "config" perl module configuration section
 #my %RAD_PERLCONF;
 
 # Multi-value attributes are mapped to perl arrayrefs.
 #
-#  request.Filter-Id := 'foo'
-#  request += {
-#    Filter-Id = 'bar'
+#  update request {
+#    Filter-Id := 'foo'
+#    Filter-Id += 'bar'
 #  }
 #
 # This results to the following entry in %RAD_REQUEST:
@@ -68,7 +68,7 @@ use constant {
 	RLM_MODULE_OK       => 2, # the module is OK, continue
 	RLM_MODULE_HANDLED  => 3, # the module handled the request, so stop
 	RLM_MODULE_INVALID  => 4, # the module considers the request invalid
-	RLM_MODULE_DISALLOW => 5, # reject the request (user is locked out)
+	RLM_MODULE_USERLOCK => 5, # reject the request (user is locked out)
 	RLM_MODULE_NOTFOUND => 6, # user not found
 	RLM_MODULE_NOOP     => 7, # module succeeded without doing anything
 	RLM_MODULE_UPDATED  => 8, # OK (pairs modified)
@@ -106,11 +106,11 @@ use constant {
 # Function to handle authorize
 sub authorize {
 	# For debugging purposes only
-#	log_request_attributes();
+#	&log_request_attributes;
 
 	# Here's where your authorization code comes
 	# You can call another function from here:
-	test_call();
+	&test_call;
 
 	return RLM_MODULE_OK;
 }
@@ -118,7 +118,7 @@ sub authorize {
 # Function to handle authenticate
 sub authenticate {
 	# For debugging purposes only
-#	log_request_attributes();
+#	&log_request_attributes;
 
 	if ($RAD_REQUEST{'User-Name'} =~ /^baduser/i) {
 		# Reject user and tell him why
@@ -126,7 +126,7 @@ sub authenticate {
 		return RLM_MODULE_REJECT;
 	} else {
 		# Accept user and set some attribute
-		if (&radiusd::xlat("%client(group)") eq 'UltraAllInclusive') {
+		if (&radiusd::xlat("%{client:group}") eq 'UltraAllInclusive') {
 			# User called from NAS with unlim plan set, set higher limits
 			$RAD_REPLY{'h323-credit-amount'} = "1000000";
 		} else {
@@ -139,7 +139,7 @@ sub authenticate {
 # Function to handle preacct
 sub preacct {
 	# For debugging purposes only
-#	log_request_attributes();
+#	&log_request_attributes;
 
 	return RLM_MODULE_OK;
 }
@@ -147,10 +147,18 @@ sub preacct {
 # Function to handle accounting
 sub accounting {
 	# For debugging purposes only
-#	log_request_attributes();
+#	&log_request_attributes;
 
 	# You can call another subroutine from here
-	test_call();
+	&test_call;
+
+	return RLM_MODULE_OK;
+}
+
+# Function to handle checksimul
+sub checksimul {
+	# For debugging purposes only
+#	&log_request_attributes;
 
 	return RLM_MODULE_OK;
 }
@@ -158,7 +166,7 @@ sub accounting {
 # Function to handle pre_proxy
 sub pre_proxy {
 	# For debugging purposes only
-#	log_request_attributes();
+#	&log_request_attributes;
 
 	return RLM_MODULE_OK;
 }
@@ -166,7 +174,7 @@ sub pre_proxy {
 # Function to handle post_proxy
 sub post_proxy {
 	# For debugging purposes only
-#	log_request_attributes();
+#	&log_request_attributes;
 
 	return RLM_MODULE_OK;
 }
@@ -174,46 +182,34 @@ sub post_proxy {
 # Function to handle post_auth
 sub post_auth {
 	# For debugging purposes only
-#	log_request_attributes();
+#	&log_request_attributes;
 
 	return RLM_MODULE_OK;
 }
 
 # Function to handle xlat
-# Receives arguments presented to the xlat as discrete
-# arguments to the function.
-# If any of the arguments are lists with multiple values e.g.
-# %{User-Name[*]} where there are multiple instances of User-Name
-# then these will be passed as references to arrays.
-#
-# Any return value is presented as the result of the xlat
-#
-# The function is called in array context so all returned values
-# are received, though currently are concatenated before being
-# presented as the expansion of the xlat.  This is due to change
-# in the future.
-#
-# Note: Hashes for the attribute lists are not available in
-#       xlat evaluation and neither will setting them result
-#       in attributes being created.
 sub xlat {
+	# For debugging purposes only
+#	&log_request_attributes;
+
 	# Loads some external perl and evaluate it
 	my ($filename,$a,$b,$c,$d) = @_;
-	radiusd::log(L_DBG, "From xlat $filename");
-	radiusd::log(L_DBG,"From xlat $a $b $c $d");
-	open(my $FH, '<', $filename) or die "open '$filename' $!";
+	&radiusd::radlog(L_DBG, "From xlat $filename ");
+	&radiusd::radlog(L_DBG,"From xlat $a $b $c $d ");
+	local *FH;
+	open FH, $filename or die "open '$filename' $!";
 	local($/) = undef;
-	my $sub = <$FH>;
-	close $FH;
+	my $sub = <FH>;
+	close FH;
 	my $eval = qq{ sub handler{ $sub;} };
-	eval $eval;  ## no critic
+	eval $eval;
 	eval {main->handler;};
 }
 
 # Function to handle detach
 sub detach {
 	# For debugging purposes only
-#	log_request_attributes();
+#	&log_request_attributes;
 }
 
 #
@@ -224,32 +220,11 @@ sub test_call {
 	# Some code goes here
 }
 
-sub log_attributes {
-	my %hash = %{$_[0]};
-	my $indent = $_[1];
-	for (keys %hash) {
-		if (ref $hash{$_} eq 'HASH') {
-			radiusd::log(L_DBG, ' 'x$indent . "$_ =>");
-			log_attributes($hash{$_}, $indent + 2);
-		} elsif (ref $hash{$_} eq 'ARRAY') {
-			foreach my $attr (@{$hash{$_}}) {
-				if (ref $attr eq 'HASH') {
-					radiusd::log(L_DBG, ' 'x$indent . "$_ =>");
-					log_attributes($attr, $indent + 2);
-				} else {
-					radiusd::log(L_DBG, ' 'x$indent . "$_ = $attr");
-				}
-			}
-		} else {
-			radiusd::log(L_DBG, ' 'x$indent . "$_ = $hash{$_}");
-		}
-	}
-}
-
 sub log_request_attributes {
 	# This shouldn't be done in production environments!
 	# This is only meant for debugging!
-	radiusd::log(L_DBG, "RAD_REQUEST:");
-	log_attributes(\%RAD_REQUEST, 2);
+	for (keys %RAD_REQUEST) {
+		&radiusd::radlog(L_DBG, "RAD_REQUEST: $_ = $RAD_REQUEST{$_}");
+	}
 }
 

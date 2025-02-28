@@ -1,4 +1,4 @@
-#  -*- text -*-
+# -*- text -*-
 ######################################################################
 #
 #  This virtual server provides an example of how to dynamically amend the
@@ -16,7 +16,7 @@
 #  system status this virtual server is able to manipulate the outcome of the
 #  controlled virtual server.
 #
-#  Firstly, the "recv Status-Server" section of this virtual server will need to be
+#  Firstly, the authorize section of this virtual server will need to be
 #  amended to check the status of the external resources and to set the status
 #  of the control module appropriately, as described in the inline comments
 #  below...
@@ -54,7 +54,7 @@
 #
 #    ...
 #
-#    recv Access-Request {
+#    authorize {
 #
 #        #  If the database is not healthy then remain silent to trigger
 #        #  NAS failover
@@ -70,13 +70,14 @@
 #
 #        pap
 #    }
+#
 #    ...
-#    }
 #
 #
 #  The configuration for this virtual server follows and should be amended as
-#  required.
+#  required...
 #
+
 
 #
 #  Listen on a local port for Server-Status requests that trigger the resource
@@ -85,26 +86,24 @@
 #  This uses the normal set of clients, with the same secret as for
 #  authentication and accounting.
 #
+listen {
+	type = status
+	ipaddr = 127.0.0.1
+	port = 18122
+	virtual_server = resource_check
+}
+
 
 #
-#  Within this virtual server we provide only an Autz-Type Status-Server section
+#  Within this virual server we provide only an Autz-Type Status-Server section
 #  whose task is to perform the resource checks and sets the status of the
 #  "control module"
 #
 server resource-check {
 
-namespace = radius
+authorize {
 
-listen {
-	transport = udp
-	udp {
-		ipaddr = 127.0.0.1
-		port = 18122
-	}
-	type = Status-Server
-}
-
-recv Status-Server {
+Autz-Type Status-Server {
 
 	#
 	#  In this example we check whether a PostgreSQL database is in
@@ -113,26 +112,28 @@ recv Status-Server {
 	#
 	#  Other modules could be used here.
 	#
-	#  You can even invoke synchronous checks using the %exec(...) xlat in
+	#  You can even invoke synchronous checks using the %{exec:...} xlat in
 	#  which case timeout should be set to less than the check trigger
 	#  interval to avoid buildup of checks when resources do not respond.
 	#  See rlm_exec for details.
 	#
-	if ("%sql('SELECT pg_is_in_recovery()')" != "f") {
+	if ("%{sql:SELECT pg_is_in_recovery()}" != "f") {
 
-		#  Fail the db_online module, if it isn't already
-		if (%db_online() != "fail") {
-			%db_online(fail)
+		# Fail the db_online module, if it isn't already
+		if ("%{db_online:}" != "fail") {
+			%{db_online:fail}
 		}
 
 	} else {
 
-		#  Set the db_online module status to alive, if it isn't already
-		if (%db_online() != "alive") {
-			%db_online(alive)
+		# Set the db_online module status to alive, if it isn't already
+		if ("%{db_online:}" != "alive") {
+			%{db_online:alive}
 		}
 
 	}
+
+}
 
 }
 

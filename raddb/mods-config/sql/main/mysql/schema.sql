@@ -14,12 +14,11 @@
 # Table structure for table 'radacct'
 #
 
-CREATE TABLE radacct (
+CREATE TABLE IF NOT EXISTS radacct (
   radacctid bigint(21) NOT NULL auto_increment,
   acctsessionid varchar(64) NOT NULL default '',
   acctuniqueid varchar(32) NOT NULL default '',
   username varchar(64) NOT NULL default '',
-  groupname varchar(64) NOT NULL default '',
   realm varchar(64) default '',
   nasipaddress varchar(15) NOT NULL default '',
   nasportid varchar(32) default NULL,
@@ -30,8 +29,8 @@ CREATE TABLE radacct (
   acctinterval int(12) default NULL,
   acctsessiontime int(12) unsigned default NULL,
   acctauthentic varchar(32) default NULL,
-  connectinfo_start varchar(50) default NULL,
-  connectinfo_stop varchar(50) default NULL,
+  connectinfo_start varchar(128) default NULL,
+  connectinfo_stop varchar(128) default NULL,
   acctinputoctets bigint(20) default NULL,
   acctoutputoctets bigint(20) default NULL,
   calledstationid varchar(50) NOT NULL default '',
@@ -59,14 +58,14 @@ CREATE TABLE radacct (
   KEY acctinterval (acctinterval),
   KEY acctstoptime (acctstoptime),
   KEY nasipaddress (nasipaddress),
-  INDEX bulk_close (acctstoptime, nasipaddress, acctstarttime)
+  KEY class (class)
 ) ENGINE = INNODB;
 
 #
 # Table structure for table 'radcheck'
 #
 
-CREATE TABLE radcheck (
+CREATE TABLE IF NOT EXISTS radcheck (
   id int(11) unsigned NOT NULL auto_increment,
   username varchar(64) NOT NULL default '',
   attribute varchar(64)  NOT NULL default '',
@@ -80,7 +79,7 @@ CREATE TABLE radcheck (
 # Table structure for table 'radgroupcheck'
 #
 
-CREATE TABLE radgroupcheck (
+CREATE TABLE IF NOT EXISTS radgroupcheck (
   id int(11) unsigned NOT NULL auto_increment,
   groupname varchar(64) NOT NULL default '',
   attribute varchar(64)  NOT NULL default '',
@@ -94,7 +93,7 @@ CREATE TABLE radgroupcheck (
 # Table structure for table 'radgroupreply'
 #
 
-CREATE TABLE radgroupreply (
+CREATE TABLE IF NOT EXISTS radgroupreply (
   id int(11) unsigned NOT NULL auto_increment,
   groupname varchar(64) NOT NULL default '',
   attribute varchar(64)  NOT NULL default '',
@@ -108,7 +107,7 @@ CREATE TABLE radgroupreply (
 # Table structure for table 'radreply'
 #
 
-CREATE TABLE radreply (
+CREATE TABLE IF NOT EXISTS radreply (
   id int(11) unsigned NOT NULL auto_increment,
   username varchar(64) NOT NULL default '',
   attribute varchar(64) NOT NULL default '',
@@ -123,7 +122,7 @@ CREATE TABLE radreply (
 # Table structure for table 'radusergroup'
 #
 
-CREATE TABLE radusergroup (
+CREATE TABLE IF NOT EXISTS radusergroup (
   id int(11) unsigned NOT NULL auto_increment,
   username varchar(64) NOT NULL default '',
   groupname varchar(64) NOT NULL default '',
@@ -141,20 +140,22 @@ CREATE TABLE radusergroup (
 #
 #   authdate timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 #
-CREATE TABLE radpostauth (
+CREATE TABLE IF NOT EXISTS radpostauth (
   id int(11) NOT NULL auto_increment,
   username varchar(64) NOT NULL default '',
   pass varchar(64) NOT NULL default '',
   reply varchar(32) NOT NULL default '',
   authdate timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  class varchar(64) NOT NULL default '',
-  PRIMARY KEY  (id)
+  class varchar(64) default NULL,
+  PRIMARY KEY  (id),
+  KEY username (username),
+  KEY class (class)
 ) ENGINE = INNODB;
 
 #
 # Table structure for table 'nas'
 #
-CREATE TABLE nas (
+CREATE TABLE IF NOT EXISTS nas (
   id int(10) NOT NULL auto_increment,
   nasname varchar(128) NOT NULL,
   shortname varchar(32),
@@ -164,8 +165,6 @@ CREATE TABLE nas (
   server varchar(64),
   community varchar(50),
   description varchar(200) DEFAULT 'RADIUS Client',
-  require_ma varchar(4) DEFAULT 'auto',
-  limit_proxy_state varchar(4) DEFAULT 'auto',
   PRIMARY KEY (id),
   KEY nasname (nasname)
 ) ENGINE = INNODB;

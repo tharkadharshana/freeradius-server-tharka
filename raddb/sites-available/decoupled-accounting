@@ -1,4 +1,4 @@
-#  -*- text -*-
+# -*- text -*-
 ######################################################################
 #
 #	This is a sample configuration for "decoupled" accounting.
@@ -23,7 +23,7 @@
 #  Any "listen" section that listens on an accounting port should
 #  set "virtual_server = write-detail.example.com
 server write_detail.example.com {
-	recv Accounting-Request {
+	accounting {
 		#
 		#  Write the "detail" files.
 		#
@@ -31,7 +31,7 @@ server write_detail.example.com {
 		detail.example.com
 	}
 
-	#  That's it!
+	# That's it!
 }
 
 #  Define a virtual server to process the accounting packets.
@@ -54,11 +54,24 @@ server read-detail.example.com {
 #
 #  Pre-accounting.  Decide which accounting type to use.
 #
-recv Accounting-Request {
+preacct {
+	preprocess
+
 	#
 	#  Ensure that we have a semi-unique identifier for every
 	#  request, and many NAS boxes are broken.
 	acct_unique
+
+	#
+	#  Look for IPASS-style 'realm/', and if not found, look for
+	#  '@realm', and decide whether or not to proxy, based on
+	#  that.
+	#
+	#  Accounting requests are generally proxied to the same
+	#  home server as authentication requests.
+#	IPASS
+	suffix
+#	ntdomain
 
 	#
 	#  Read the 'acct_users' file
@@ -68,7 +81,7 @@ recv Accounting-Request {
 #
 #  Accounting.  Log the accounting data.
 #
-send Accounting-Response {
+accounting {
 	#
 	#  Create a 'detail'ed log of the packets.
 	#  Note that accounting requests which are proxied
@@ -76,13 +89,25 @@ send Accounting-Response {
 	detail
 #	daily
 
+	#  Update the wtmp file
+	#
+	#  If you don't use "radlast", you can delete this line.
+	unix
+
+	#
+	#  For Simultaneous-Use tracking.
+	#
+	#  Due to packet losses in the network, the data here
+	#  may be incorrect.  There is little we can do about it.
+	radutmp
+#	sradutmp
+
 	#
 	#  Return an address to the IP Pool when we see a stop record.
 	#
-	#  Ensure that control.IP-Pool.Name is set to determine which
-￼	#  pool of IPs are used.
-	#
-	sqlippool
+	#  Ensure that &control:Pool-Name is set to determine which
+	#  pool of IPs are used.
+#	sqlippool
 
 	#
 	#  Log traffic to an SQL database.
@@ -97,12 +122,6 @@ send Accounting-Response {
 	#
 	#  See "Accounting queries" in `mods-config/sql/main/$driver/queries.conf`
 #	sql
-
-	#
-	#  Instead of sending the query to the SQL server,
-	#  write it into a log file.
-	#
-#	sql_log
 
 	#  Cisco VoIP specific bulk accounting
 #	pgsql-voip

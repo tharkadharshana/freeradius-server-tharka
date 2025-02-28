@@ -1,8 +1,8 @@
--- -*- text -*-
---
---  main/postgresql/process-radacct.sql -- Schema extensions for processing radacct entries
---
---  $Id$
+#  -*- text -*-
+#
+#  main/postgresql/process-radacct.sql -- Schema extensions for processing radacct entries
+#
+#  $Id$
 
 --  ---------------------------------
 --  - Per-user data usage over time -
@@ -159,7 +159,7 @@ $$;
 --  this strategy leaves them open and records the NAS reload time in the
 --  nasreload table.
 --
---  Where applicable, the onus is on the administrator to:
+--  Where applicable, the onus is on the administator to:
 --
 --    * Consider the nas reload times when deriving a list of
 --      active/inactive sessions, and when determining the duration of sessions
@@ -285,3 +285,4 @@ BEGIN
 
 END
 $$;
+

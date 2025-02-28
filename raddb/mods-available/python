@@ -1,96 +1,65 @@
-#  -*- text -*-
 #
+# Make sure the PYTHONPATH environmental variable contains the
+# directory(s) for the modules listed below.
 #
-#  $Id$
-
-#######################################################################
-#
-#  = Python Module
-#
-#  The `python` module processes attributes through a Python interpreter.
-#
-#  * Please see the `src/modules/rlm_python/example.py` sample.
-#  * Please see https://www.python.org/doc/ for more information about the
-#  Python language.
-#
-#  NOTE: Uncomment any `func_*` configuration items below which are
-#  included in your module. If the module is called for a section which
-#  does not have a function defined, it will return `noop`.
-#
-#  Please see the file global.d/python for server-global configuration
-#  items which control the Python path.
-#
-
-#
-#  [NOTE]
-#  ====
-#  See `raddb/global.d/python` for configuration items that affect the
-#  python interpreter globally, such as the Python path.
-#  ====
-#
-
-#
-#  ## Configuration Settings
-#
-#  The Python API `threading.local()` may be used store thread
-#  specific data such as connection handles.
+# Uncomment any func_* which are included in your module. If
+# rlm_python is called for a section which does not have
+# a function defined, it will return NOOP.
 #
 python {
+	#  Path to the python modules
 	#
-	#  module::
+	#  Note that due to limitations on Python, this configuration
+	#  item is GLOBAL TO THE SERVER.  That is, you cannot have two
+	#  instances of the python module, each with a different path.
 	#
-	#  Module to load functions from.
-	#
+#        python_path="${modconfdir}/${.:name}:/path/to/python/files:/another_path/to/python_files/"
+
 	module = example
 
-	#
-	#  [NOTE]
-	#  ====
-	#  * You may set `mod_<section>` for any of the section to module
-	#  mappings below, if you want to reference a function in a  different
-	#  module.
-	#
-	#  * Uncomment `func_<section>` lines your module provides methods for.
-	#  ====
-	#
+	# Pass all VPS lists as a 6-tuple to the callbacks
+	# (request, reply, config, state, proxy_req, proxy_reply)
+#	pass_all_vps = no
 
-	#
-	#  func_instantiate:: Called on module instantiation.
-	#
+	# Pass all VPS lists as a dictionary to the callbacks
+	# Keys: "request", "reply", "config", "session-state", "proxy-request",
+	#       "proxy-reply"
+	# This option prevales over "pass_all_vps"
+#	pass_all_vps_dict = no
+
+#	mod_instantiate = ${.module}
 #	func_instantiate = instantiate
 
-	#
-	#  func_detach:: Called on module unload.
-	#
+#	mod_detach = ${.module}
 #	func_detach = detach
 
+#	mod_authorize = ${.module}
 #	func_authorize = authorize
+
+#	mod_authenticate = ${.module}
 #	func_authenticate = authenticate
+
+#	mod_preacct = ${.module}
 #	func_preacct = preacct
+
+#	mod_accounting = ${.module}
 #	func_accounting = accounting
+
+#	mod_checksimul = ${.module}
+#	func_checksimul = checksimul
+
+#	mod_pre_proxy = ${.module}
 #	func_pre_proxy = pre_proxy
+
+#	mod_post_proxy = ${.module}
 #	func_post_proxy = post_proxy
+
+#	mod_post_auth = ${.module}
 #	func_post_auth = post_auth
 
-	#
-	#  config { ... }::
-	#
-	#  You can define configuration items (and nested sub-sections) in python `config { ... }`
-	#  section. These items will be accessible in the Python script through `radiusd.config`
-	#  dict for instance:
-	#
-	#  e.g:
-	#
-	#  [source,python]
-	#  ----
-	#  radiusd.config['name']
-	#  radiusd.config['sub-config']['name']
-	#  ----
-	#
-#	config {
-#		name = "value"
-#		sub-config {
-#			name = "value of name from config.sub-config"
-#		}
-#	}
+#	mod_recv_coa = ${.module}
+#	func_recv_coa = recv_coa
+
+#	mod_send_coa = ${.module}
+#	func_send_coa = send_coa
 }

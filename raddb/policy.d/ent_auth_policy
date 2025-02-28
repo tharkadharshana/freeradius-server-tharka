@@ -1,0 +1,156 @@
+ent_auth_policy {
+    # Ensure both User-Name and User-Password are provided in the request
+    if (!&User-Name || !&User-Password) {
+        update reply {
+            Reply-Message := "Missing User-Name or User-Password"
+        }
+        reject
+    }
+
+    # Check if Calling-Station-Id and Called-Station-Id are present
+    if (&Calling-Station-Id && &Called-Station-Id) {
+        # Extract MSISDN from Calling-Station-Id
+        update request {
+            Tmp-String-1 := "%{Calling-Station-Id}"
+        }
+        
+        # Extract APN from Called-Station-Id
+        update request {
+            Tmp-String-2 := "%{Called-Station-Id}"
+        }
+        
+        # Concatenate MSISDN and APN as MSISDN-APN format
+        update request {
+            User-Name := "%{Tmp-String-1}-%{Tmp-String-2}"
+        }
+
+    } else {
+        # Check if User-Name contains whitespace
+        if (&User-Name =~ / /) {
+            update reply {
+                Reply-Message := "Invalid User-Name"
+            }
+            reject
+        }
+    
+    
+        # reject mixed case e.g. "UseRNaMe"
+        if (&User-Name != "%{tolower:%{User-Name}}") {
+            reject
+        }
+    
+        
+        # reject all whitespace
+        # e.g. "user@ site.com", or "us er", or " user", or "user "
+        if (&User-Name =~ / /) {
+            update request {
+                &Module-Failure-Message += 'Rejected: User-Name contains whitespace'
+            }
+            reject
+        }
+
+        # reject Multiple @'s
+        # e.g. "user@site.com@site.com"
+        if (&User-Name =~ /@[^@]*@/ ) {
+            update request {
+                &Module-Failure-Message += 'Rejected: Multiple @ in User-Name'
+            }
+            reject
+        }
+    
+    
+        # reject double dots
+        # e.g. "user@site..com"
+        if (&User-Name =~ /\.\./ ) {
+            update request {
+                &Module-Failure-Message += 'Rejected: User-Name contains multiple ..s'
+            }
+            reject
+        }
+    
+    
+        # must have at least 1 string-dot-string after @
+        # e.g. "user@site.com"
+        if ((&User-Name =~ /@/) && (&User-Name !~ /@(.+)\.(.+)$/))  {
+            update request {
+                &Module-Failure-Message += 'Rejected: Realm does not have at least one dot separator'
+            }
+            reject
+        }
+    
+        # Realm ends with a dot
+        # e.g. "user@site.com."
+        if (&User-Name =~ /\.$/)  {
+            update request {
+                &Module-Failure-Message += 'Rejected: Realm ends with a dot'
+            }
+            reject
+        }
+    
+        # Realm begins with a dot
+        # e.g. "user@.site.com"
+        if (&User-Name =~ /@\./)  {
+            update request {
+                &Module-Failure-Message += 'Rejected: Realm begins with a dot'
+            }
+            reject
+        }
+    
+        if (&User-Name) {
+            update request {
+                Tmp-String-0 := "%{User-Name}"  # Store the original username
+            }
+        
+            # Extract the portion before '@'
+            if ("%{Tmp-String-0}" =~ /^([^@]+)@/) {
+                update request {
+                    User-Name := "%{1}"  # Store the part before '@'
+                }
+            } else {
+                update reply {
+                    Reply-Message := "Invalid username format: Missing '@'"
+                }
+                reject
+            }
+        }   
+    }
+
+ 
+    # Execute the SQL module to retrieve user data
+    ent_sql
+
+    # Check if the SQL module successfully found a matching user
+    if (!ok) {
+ 
+        # Compare the password retrieved from SQL with the provided password
+#        if ("%{control:Cleartext-Password}" == "%{request:User-Password}") {
+ 
+            # Check Barring-Status
+#            if ("%{control:Barring-Status}" != 0) {
+#                update reply {
+#                    Reply-Message := "User is barred"
+#                }
+#                reject
+#            }
+#            else {
+#               update reply {
+#                   Reply-Message := "Login OK"
+#               }
+#               accept
+#           }
+#       } else {
+#            Password mismatch
+#           update reply {
+#               Reply-Message := "Invalid password"
+#           }
+#           reject
+#       }
+
+#    } else {
+        # No user found in the database
+        update reply {
+            Reply-Message := "User not found"
+        }
+        reject
+    }
+}

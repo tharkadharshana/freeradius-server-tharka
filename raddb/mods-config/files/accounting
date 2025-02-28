@@ -6,18 +6,22 @@
 #
 
 #  Select between different accounting methods based for example on the
-#  Realm, the Huntgroup-Name or any combination of the attribute/value
+#  Realm, the Huntgroup-Name or any combinaison of the attribute/value
 #  pairs contained in an accounting packet.
 #
-#DEFAULT Realm == "foo.net", Acct-Type := sql_log.foo
+#  You will need to add an "Acct-Type foo {...}" subsection to the
+#  main "accounting" section in order for these sample configurations
+#  to work.
 #
-#DEFAULT Huntgroup-Name == "wifi", Acct-Type := sql_log.wifi
+#DEFAULT Realm == "foo.net", Acct-Type := foo
 #
-#DEFAULT Net.Src.IP == 10.0.0.1, Acct-Type := sql_log.other
+#DEFAULT Huntgroup-Name == "wifi", Acct-Type := wifi
 #
-#DEFAULT Acct-Status-Type == Start, Acct-Type := sql_log.start
+#DEFAULT Client-IP-Address == 10.0.0.1, Acct-Type := other
+#
+#DEFAULT Acct-Status-Type == Start, Acct-Type := start
 
 #  Replace the User-Name with the Stripped-User-Name, if it exists.
 #
 #DEFAULT
-#	User-Name := "%{Stripped-User-Name || User-Name}"
+#	User-Name := "%{%{Stripped-User-Name}:-%{User-Name}}"
